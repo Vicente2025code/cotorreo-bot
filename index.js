@@ -1,53 +1,30 @@
-// index.js
-// Webhook WhatsApp con Node.js + Express + Twilio (State Machine puro)
-
-const express = require('express');
-const bodyParser = require('body-parser');
-const twilio = require('twilio');
+// ================================
+// DEPENDENCIAS
+// ================================
+const express = require("express");
+const bodyParser = require("body-parser");
 
 const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
 
-// ==============================
-// Estado global por usuario
-// ==============================
+// ================================
+// ESTADO GLOBAL POR USUARIO
+// ================================
 const userState = {};
 
-// ==============================
-// Constantes de estados
-// ==============================
-const STATES = {
-  MENU_PRINCIPAL: 'MENU_PRINCIPAL',
-
-  PLAZA_MENU: 'PLAZA_MENU',
-  PLAZA_MENU_INFO: 'PLAZA_MENU_INFO',
-  PLAZA_PROMOCIONES: 'PLAZA_PROMOCIONES',
-  PLAZA_HORARIOS: 'PLAZA_HORARIOS',
-  PLAZA_UBICACION: 'PLAZA_UBICACION',
-  PLAZA_RESERVAS: 'PLAZA_RESERVAS',
-  PLAZA_PAQUETES: 'PLAZA_PAQUETES',
-
-  ALPADEL_MENU: 'ALPADEL_MENU',
-  ALPADEL_PRECIOS: 'ALPADEL_PRECIOS',
-  ALPADEL_RESERVAS: 'ALPADEL_RESERVAS',
-  ALPADEL_CLASES: 'ALPADEL_CLASES',
-  ALPADEL_PROMOCIONES: 'ALPADEL_PROMOCIONES',
-  ALPADEL_PAQUETES: 'ALPADEL_PAQUETES',
-
-  ASESOR: 'ASESOR',
-};
-
-// ==============================
-// Textos (fácil de modificar)
-// ==============================
-const TEXTOS = {
-  MENU_PRINCIPAL: `👋 Bienvenido a *Grupo Cotorreo*
+// ================================
+// TEXTOS (FÁCILES DE EDITAR)
+// ================================
+const MENU_PRINCIPAL_TEXT = `
+👋 Bienvenido a *Grupo Cotorreo*
 
 1️⃣ Plaza Cotorreo
 2️⃣ Alpadel
-3️⃣ Hablar con un asesor`,
+3️⃣ Hablar con un asesor
+`;
 
-  PLAZA_MENU: `🏢 *Plaza Cotorreo*
+const PLAZA_MENU_TEXT = `
+🏢 *Plaza Cotorreo*
 
 1️⃣ Menú
 2️⃣ Promociones
@@ -56,230 +33,215 @@ const TEXTOS = {
 5️⃣ Reservas
 6️⃣ Paquetes para fiestas
 
-9️⃣ Volver
-0️⃣ Menú principal`,
+0️⃣ Volver
+`;
 
-  ALPADEL_MENU: `🎾 *Alpadel*
+const ALPADEL_MENU_TEXT = `
+🎾 *Alpadel*
 
 1️⃣ Precios
-2️⃣ Reservar
+2️⃣ Reservar cancha
 3️⃣ Clases
 4️⃣ Promociones
 5️⃣ Paquetes para fiestas
 
-9️⃣ Volver
-0️⃣ Menú principal`,
+0️⃣ Volver
+`;
 
-  ASESOR: `👤 Un asesor te atenderá pronto:
+const ASESOR_TEXT = `
+👤 Un asesor te atenderá pronto:
 
 📞 Plaza Cotorreo: 2460-5050
 📞 Alpadel: 7131-6051
 
-0️⃣ Menú principal`,
-};
+0️⃣ Volver
+`;
 
-// ==============================
-// Utilidades
-// ==============================
-function getUserState(from) {
-  if (!userState[from]) {
-    userState[from] = STATES.MENU_PRINCIPAL;
-  }
-  return userState[from];
+// ================================
+// FUNCIÓN ÚNICA PARA RESPONDER
+// ================================
+function sendResponse(res, message) {
+  res.writeHead(200, { "Content-Type": "text/xml" });
+  res.end(`
+<Response>
+  <Message>${message}</Message>
+</Response>
+`);
 }
 
-function setUserState(from, state) {
-  userState[from] = state;
-}
-
-function twimlResponse(message) {
-  const twiml = new twilio.twiml.MessagingResponse();
-  twiml.message(message);
-  return twiml.toString();
-}
-
-// ==============================
-// Webhook WhatsApp
-// ==============================
-app.post('/whatsapp', (req, res) => {
+// ================================
+// WEBHOOK WHATSAPP
+// ================================
+app.post("/whatsapp", (req, res) => {
   const from = req.body.From;
-  const body = (req.body.Body || '').trim().toLowerCase();
+  const text = (req.body.Body || "").trim().toLowerCase();
 
-  let estadoActual = getUserState(from);
-  let respuesta = '';
-
-  // ==============================
-  // COMANDOS GLOBALES (PRIORIDAD)
-  // ==============================
-  if (['menu', 'menú', 'inicio', 'hola'].includes(body)) {
-    setUserState(from, STATES.MENU_PRINCIPAL);
-    return res.send(twimlResponse(TEXTOS.MENU_PRINCIPAL));
+  // ================================
+  // INICIALIZAR ESTADO
+  // ================================
+  if (!userState[from]) {
+    userState[from] = "MENU_PRINCIPAL";
   }
 
-  if (body === 'asesor') {
-    setUserState(from, STATES.ASESOR);
-    return res.send(twimlResponse(TEXTOS.ASESOR));
+  // ================================
+  // COMANDOS GLOBALES
+  // ================================
+  if (["menu", "menú", "inicio", "hola", "9"].includes(text)) {
+    userState[from] = "MENU_PRINCIPAL";
+    return sendResponse(res, MENU_PRINCIPAL_TEXT);
   }
 
-  // 0 = SIEMPRE menú principal
-  if (body === '0') {
-    setUserState(from, STATES.MENU_PRINCIPAL);
-    return res.send(twimlResponse(TEXTOS.MENU_PRINCIPAL));
+  if (text === "asesor") {
+    userState[from] = "ASESOR";
+    return sendResponse(res, ASESOR_TEXT);
   }
 
-  // 9 = volver al menú anterior
-  if (body === '9') {
-    if (estadoActual.startsWith('PLAZA_') && estadoActual !== STATES.PLAZA_MENU) {
-      setUserState(from, STATES.PLAZA_MENU);
-      return res.send(twimlResponse(TEXTOS.PLAZA_MENU));
+  // ================================
+  // MENU PRINCIPAL
+  // ================================
+  if (userState[from] === "MENU_PRINCIPAL") {
+    if (text === "1") {
+      userState[from] = "PLAZA_MENU";
+      return sendResponse(res, PLAZA_MENU_TEXT);
     }
-    if (estadoActual.startsWith('ALPADEL_') && estadoActual !== STATES.ALPADEL_MENU) {
-      setUserState(from, STATES.ALPADEL_MENU);
-      return res.send(twimlResponse(TEXTOS.ALPADEL_MENU));
+
+    if (text === "2") {
+      userState[from] = "ALPADEL_MENU";
+      return sendResponse(res, ALPADEL_MENU_TEXT);
     }
-    setUserState(from, STATES.MENU_PRINCIPAL);
-    return res.send(twimlResponse(TEXTOS.MENU_PRINCIPAL));
+
+    if (text === "3") {
+      userState[from] = "ASESOR";
+      return sendResponse(res, ASESOR_TEXT);
+    }
+
+    return sendResponse(res, MENU_PRINCIPAL_TEXT);
   }
 
-  // ==============================
-  // LÓGICA POR ESTADO
-  // ==============================
-  switch (estadoActual) {
-    case STATES.MENU_PRINCIPAL:
-      if (body === '1') {
-        setUserState(from, STATES.PLAZA_MENU);
-        respuesta = TEXTOS.PLAZA_MENU;
-      } else if (body === '2') {
-        setUserState(from, STATES.ALPADEL_MENU);
-        respuesta = TEXTOS.ALPADEL_MENU;
-      } else if (body === '3') {
-        setUserState(from, STATES.ASESOR);
-        respuesta = TEXTOS.ASESOR;
-      } else {
-        respuesta = TEXTOS.MENU_PRINCIPAL;
-      }
-      break;
+  // ================================
+  // PLAZA COTORREO MENU
+  // ================================
+  if (userState[from] === "PLAZA_MENU") {
+    if (text === "1") {
+      userState[from] = "PLAZA_MENU";
+      return sendResponse(res, "📋 Menú Plaza Cotorreo\n\n0️⃣ Volver");
+    }
 
-    case STATES.PLAZA_MENU:
-      if (body === '1') {
-        setUserState(from, STATES.PLAZA_MENU_INFO);
-        respuesta = `📋 *Menú Plaza Cotorreo*
+    if (text === "2") {
+      userState[from] = "PLAZA_PROMOCIONES";
+      return sendResponse(res, "🎉 Promociones Plaza Cotorreo\n\n0️⃣ Volver");
+    }
 
-Información disponible.
+    if (text === "3") {
+      userState[from] = "PLAZA_HORARIOS";
+      return sendResponse(res, "⏰ Horarios Plaza Cotorreo\n\n0️⃣ Volver");
+    }
 
-9️⃣ Volver
-0️⃣ Menú principal`;
-      } else if (body === '2') {
-        setUserState(from, STATES.PLAZA_PROMOCIONES);
-        respuesta = `🎉 *Promociones Plaza Cotorreo*
+    if (text === "4") {
+      userState[from] = "PLAZA_UBICACION";
+      return sendResponse(res, "📍 Ubicación Plaza Cotorreo\n\n0️⃣ Volver");
+    }
 
-Información disponible.
+    if (text === "5") {
+      userState[from] = "PLAZA_RESERVAS";
+      return sendResponse(res, "📅 Reservas Plaza Cotorreo\n\n0️⃣ Volver");
+    }
 
-9️⃣ Volver
-0️⃣ Menú principal`;
-      } else if (body === '3') {
-        setUserState(from, STATES.PLAZA_HORARIOS);
-        respuesta = `⏰ *Horarios Plaza Cotorreo*
+    if (text === "6") {
+      userState[from] = "PLAZA_PAQUETES";
+      return sendResponse(res, "🎈 Paquetes para fiestas Plaza Cotorreo\n\n0️⃣ Volver");
+    }
 
-Información disponible.
+    if (text === "0") {
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, MENU_PRINCIPAL_TEXT);
+    }
 
-9️⃣ Volver
-0️⃣ Menú principal`;
-      } else if (body === '4') {
-        setUserState(from, STATES.PLAZA_UBICACION);
-        respuesta = `📍 *Ubicación Plaza Cotorreo*
-
-Información disponible.
-
-9️⃣ Volver
-0️⃣ Menú principal`;
-      } else if (body === '5') {
-        setUserState(from, STATES.PLAZA_RESERVAS);
-        respuesta = `📅 *Reservas Plaza Cotorreo*
-
-Información disponible.
-
-9️⃣ Volver
-0️⃣ Menú principal`;
-      } else if (body === '6') {
-        setUserState(from, STATES.PLAZA_PAQUETES);
-        respuesta = `🎂 *Paquetes para fiestas*
-
-Información disponible.
-
-9️⃣ Volver
-0️⃣ Menú principal`;
-      } else {
-        respuesta = TEXTOS.PLAZA_MENU;
-      }
-      break;
-
-    case STATES.ALPADEL_MENU:
-      if (body === '1') {
-        setUserState(from, STATES.ALPADEL_PRECIOS);
-        respuesta = `💰 *Precios Alpadel*
-
-Información disponible.
-
-9️⃣ Volver
-0️⃣ Menú principal`;
-      } else if (body === '2') {
-        setUserState(from, STATES.ALPADEL_RESERVAS);
-        respuesta = `📅 *Reservas Alpadel*
-
-Información disponible.
-
-9️⃣ Volver
-0️⃣ Menú principal`;
-      } else if (body === '3') {
-        setUserState(from, STATES.ALPADEL_CLASES);
-        respuesta = `🎓 *Clases Alpadel*
-
-Información disponible.
-
-9️⃣ Volver
-0️⃣ Menú principal`;
-      } else if (body === '4') {
-        setUserState(from, STATES.ALPADEL_PROMOCIONES);
-        respuesta = `🎉 *Promociones Alpadel*
-
-Información disponible.
-
-9️⃣ Volver
-0️⃣ Menú principal`;
-      } else if (body === '5') {
-        setUserState(from, STATES.ALPADEL_PAQUETES);
-        respuesta = `🎾 *Paquetes para fiestas*
-
-Información disponible.
-
-9️⃣ Volver
-0️⃣ Menú principal`;
-      } else {
-        respuesta = TEXTOS.ALPADEL_MENU;
-      }
-      break;
-
-    case STATES.ASESOR:
-      respuesta = TEXTOS.ASESOR;
-      break;
-
-    default:
-      setUserState(from, STATES.MENU_PRINCIPAL);
-      respuesta = TEXTOS.MENU_PRINCIPAL;
-      break;
+    return sendResponse(res, PLAZA_MENU_TEXT);
   }
 
-  // ==============================
-  // RESPUESTA FINAL (UNA SOLA)
-  // ==============================
-  res.send(twimlResponse(respuesta));
+  // ================================
+  // SUBMENÚS PLAZA
+  // ================================
+  if (
+    userState[from].startsWith("PLAZA_") &&
+    text === "0"
+  ) {
+    userState[from] = "PLAZA_MENU";
+    return sendResponse(res, PLAZA_MENU_TEXT);
+  }
+
+  // ================================
+  // ALPADEL MENU
+  // ================================
+  if (userState[from] === "ALPADEL_MENU") {
+    if (text === "1") {
+      userState[from] = "ALPADEL_PRECIOS";
+      return sendResponse(res, "💰 Precios Alpadel\n\n0️⃣ Volver");
+    }
+
+    if (text === "2") {
+      userState[from] = "ALPADEL_RESERVAS";
+      return sendResponse(res, "📅 Reservar cancha\n\n0️⃣ Volver");
+    }
+
+    if (text === "3") {
+      userState[from] = "ALPADEL_CLASES";
+      return sendResponse(res, "🎾 Clases de pádel\n\n0️⃣ Volver");
+    }
+
+    if (text === "4") {
+      userState[from] = "ALPADEL_PROMOCIONES";
+      return sendResponse(res, "🎉 Promociones Alpadel\n\n0️⃣ Volver");
+    }
+
+    if (text === "5") {
+      userState[from] = "ALPADEL_PAQUETES";
+      return sendResponse(res, "🎈 Paquetes para fiestas Alpadel\n\n0️⃣ Volver");
+    }
+
+    if (text === "0") {
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, MENU_PRINCIPAL_TEXT);
+    }
+
+    return sendResponse(res, ALPADEL_MENU_TEXT);
+  }
+
+  // ================================
+  // SUBMENÚS ALPADEL
+  // ================================
+  if (
+    userState[from].startsWith("ALPADEL_") &&
+    text === "0"
+  ) {
+    userState[from] = "ALPADEL_MENU";
+    return sendResponse(res, ALPADEL_MENU_TEXT);
+  }
+
+  // ================================
+  // ASESOR
+  // ================================
+  if (userState[from] === "ASESOR") {
+    if (text === "0") {
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, MENU_PRINCIPAL_TEXT);
+    }
+
+    return sendResponse(res, ASESOR_TEXT);
+  }
+
+  // ================================
+  // FALLBACK ABSOLUTO
+  // ================================
+  userState[from] = "MENU_PRINCIPAL";
+  return sendResponse(res, MENU_PRINCIPAL_TEXT);
 });
 
-// ==============================
-// Servidor
-// ==============================
+// ================================
+// SERVIDOR
+// ================================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor WhatsApp activo en puerto ${PORT}`);
+  console.log("Servidor WhatsApp activo en puerto " + PORT);
 });
