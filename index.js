@@ -1,253 +1,285 @@
-const express = require("express");
-const bodyParser = require("body-parser");
+// index.js
+// Webhook WhatsApp con Node.js + Express + Twilio (State Machine puro)
+
+const express = require('express');
+const bodyParser = require('body-parser');
+const twilio = require('twilio');
 
 const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
 
-/* ===============================
-   SESIONES SIMPLES (12 HORAS)
-================================ */
-const sessions = {};
-const SESSION_TTL = 12 * 60 * 60 * 1000;
+// ==============================
+// Estado global por usuario
+// ==============================
+const userState = {};
 
-function getSession(from) {
-  const now = Date.now();
-  if (!sessions[from] || now - sessions[from].last > SESSION_TTL) {
-    sessions[from] = {
-      step: "START",
-      history: [],
-      last: now
-    };
+// ==============================
+// Constantes de estados
+// ==============================
+const STATES = {
+  MENU_PRINCIPAL: 'MENU_PRINCIPAL',
+
+  PLAZA_MENU: 'PLAZA_MENU',
+  PLAZA_MENU_INFO: 'PLAZA_MENU_INFO',
+  PLAZA_PROMOCIONES: 'PLAZA_PROMOCIONES',
+  PLAZA_HORARIOS: 'PLAZA_HORARIOS',
+  PLAZA_UBICACION: 'PLAZA_UBICACION',
+  PLAZA_RESERVAS: 'PLAZA_RESERVAS',
+  PLAZA_PAQUETES: 'PLAZA_PAQUETES',
+
+  ALPADEL_MENU: 'ALPADEL_MENU',
+  ALPADEL_PRECIOS: 'ALPADEL_PRECIOS',
+  ALPADEL_RESERVAS: 'ALPADEL_RESERVAS',
+  ALPADEL_CLASES: 'ALPADEL_CLASES',
+  ALPADEL_PROMOCIONES: 'ALPADEL_PROMOCIONES',
+  ALPADEL_PAQUETES: 'ALPADEL_PAQUETES',
+
+  ASESOR: 'ASESOR',
+};
+
+// ==============================
+// Textos (fácil de modificar)
+// ==============================
+const TEXTOS = {
+  MENU_PRINCIPAL: `👋 Bienvenido a *Grupo Cotorreo*
+
+1️⃣ Plaza Cotorreo
+2️⃣ Alpadel
+3️⃣ Hablar con un asesor`,
+
+  PLAZA_MENU: `🏢 *Plaza Cotorreo*
+
+1️⃣ Menú
+2️⃣ Promociones
+3️⃣ Horarios
+4️⃣ Ubicación
+5️⃣ Reservas
+6️⃣ Paquetes para fiestas
+
+9️⃣ Volver
+0️⃣ Menú principal`,
+
+  ALPADEL_MENU: `🎾 *Alpadel*
+
+1️⃣ Precios
+2️⃣ Reservar
+3️⃣ Clases
+4️⃣ Promociones
+5️⃣ Paquetes para fiestas
+
+9️⃣ Volver
+0️⃣ Menú principal`,
+
+  ASESOR: `👤 Un asesor te atenderá pronto:
+
+📞 Plaza Cotorreo: 2460-5050
+📞 Alpadel: 7131-6051
+
+0️⃣ Menú principal`,
+};
+
+// ==============================
+// Utilidades
+// ==============================
+function getUserState(from) {
+  if (!userState[from]) {
+    userState[from] = STATES.MENU_PRINCIPAL;
   }
-  sessions[from].last = now;
-  return sessions[from];
+  return userState[from];
 }
 
-function goTo(session, next) {
-  session.history.push(session.step);
-  session.step = next;
+function setUserState(from, state) {
+  userState[from] = state;
 }
 
-function goBack(session) {
-  session.step = session.history.pop() || "START";
+function twimlResponse(message) {
+  const twiml = new twilio.twiml.MessagingResponse();
+  twiml.message(message);
+  return twiml.toString();
 }
 
-function reset(session) {
-  session.step = "START";
-  session.history = [];
-}
-
-/* ===============================
-   WEBHOOK WHATSAPP
-================================ */
-app.post("/whatsapp", (req, res) => {
+// ==============================
+// Webhook WhatsApp
+// ==============================
+app.post('/whatsapp', (req, res) => {
   const from = req.body.From;
-  const msgRaw = (req.body.Body || "").trim();
-  const msg = msgRaw.toLowerCase();
-  const session = getSession(from);
+  const body = (req.body.Body || '').trim().toLowerCase();
 
-  /* ========= HUMANO ========= */
-  if (msg.includes("asesor") || msg.includes("humano")) {
-    return send(res,
-      "🙋‍♂️ Claro, un asesor te atenderá pronto.\n\n" +
-      "📞 Plaza Cotorreo: 2460-5050\n" +
-      "📱 Alpadel: 7131-6051\n\n" +
-      "9️⃣ Volver al inicio"
-    );
+  let estadoActual = getUserState(from);
+  let respuesta = '';
+
+  // ==============================
+  // COMANDOS GLOBALES (PRIORIDAD)
+  // ==============================
+  if (['menu', 'menú', 'inicio', 'hola'].includes(body)) {
+    setUserState(from, STATES.MENU_PRINCIPAL);
+    return res.send(twimlResponse(TEXTOS.MENU_PRINCIPAL));
   }
 
-  /* ========= NAVEGACIÓN ========= */
-  if (msg === "0") {
-    goBack(session);
-  }
-  if (msg === "9") {
-    reset(session);
+  if (body === 'asesor') {
+    setUserState(from, STATES.ASESOR);
+    return res.send(twimlResponse(TEXTOS.ASESOR));
   }
 
-  let reply = "";
-
-  /* ===============================
-     START
-  ================================ */
-  if (session.step === "START") {
-    reply =
-      "👋 *Bienvenido a Grupo Cotorreo*\n\n" +
-      "¿Qué deseas consultar?\n\n" +
-      "1️⃣ Plaza Cotorreo\n" +
-      "2️⃣ Alpadel";
-    session.step = "MAIN_MENU";
-    return send(res, reply);
+  // 0 = SIEMPRE menú principal
+  if (body === '0') {
+    setUserState(from, STATES.MENU_PRINCIPAL);
+    return res.send(twimlResponse(TEXTOS.MENU_PRINCIPAL));
   }
 
-  /* ===============================
-     MENÚ PRINCIPAL
-  ================================ */
-  if (session.step === "MAIN_MENU") {
-    if (msg === "1") goTo(session, "PLAZA_MENU");
-    else if (msg === "2") goTo(session, "ALPADEL_MENU");
-    else {
-      return send(res,
-        "Elige una opción válida 🙂\n\n" +
-        "1️⃣ Plaza Cotorreo\n2️⃣ Alpadel"
-      );
+  // 9 = volver al menú anterior
+  if (body === '9') {
+    if (estadoActual.startsWith('PLAZA_') && estadoActual !== STATES.PLAZA_MENU) {
+      setUserState(from, STATES.PLAZA_MENU);
+      return res.send(twimlResponse(TEXTOS.PLAZA_MENU));
     }
+    if (estadoActual.startsWith('ALPADEL_') && estadoActual !== STATES.ALPADEL_MENU) {
+      setUserState(from, STATES.ALPADEL_MENU);
+      return res.send(twimlResponse(TEXTOS.ALPADEL_MENU));
+    }
+    setUserState(from, STATES.MENU_PRINCIPAL);
+    return res.send(twimlResponse(TEXTOS.MENU_PRINCIPAL));
   }
 
-  /* ===============================
-     PLAZA COTORREO
-  ================================ */
-  if (session.step === "PLAZA_MENU") {
-    reply =
-      "🏙️ *Plaza Cotorreo*\n\n" +
-      "1️⃣ Menú\n" +
-      "2️⃣ Promociones\n" +
-      "3️⃣ Ubicación\n" +
-      "4️⃣ Horarios\n" +
-      "5️⃣ Reservas / Eventos\n\n" +
-      "0️⃣ Volver | 9️⃣ Inicio";
+  // ==============================
+  // LÓGICA POR ESTADO
+  // ==============================
+  switch (estadoActual) {
+    case STATES.MENU_PRINCIPAL:
+      if (body === '1') {
+        setUserState(from, STATES.PLAZA_MENU);
+        respuesta = TEXTOS.PLAZA_MENU;
+      } else if (body === '2') {
+        setUserState(from, STATES.ALPADEL_MENU);
+        respuesta = TEXTOS.ALPADEL_MENU;
+      } else if (body === '3') {
+        setUserState(from, STATES.ASESOR);
+        respuesta = TEXTOS.ASESOR;
+      } else {
+        respuesta = TEXTOS.MENU_PRINCIPAL;
+      }
+      break;
 
-    if (msg === "1") goTo(session, "PLAZA_MENU_LISTA");
-    if (msg === "2") goTo(session, "PLAZA_PROMOS");
-    if (msg === "3") goTo(session, "PLAZA_UBICACION");
-    if (msg === "4") goTo(session, "PLAZA_HORARIOS");
-    if (msg === "5") goTo(session, "PLAZA_RESERVAS");
+    case STATES.PLAZA_MENU:
+      if (body === '1') {
+        setUserState(from, STATES.PLAZA_MENU_INFO);
+        respuesta = `📋 *Menú Plaza Cotorreo*
 
-    return send(res, reply);
+Información disponible.
+
+9️⃣ Volver
+0️⃣ Menú principal`;
+      } else if (body === '2') {
+        setUserState(from, STATES.PLAZA_PROMOCIONES);
+        respuesta = `🎉 *Promociones Plaza Cotorreo*
+
+Información disponible.
+
+9️⃣ Volver
+0️⃣ Menú principal`;
+      } else if (body === '3') {
+        setUserState(from, STATES.PLAZA_HORARIOS);
+        respuesta = `⏰ *Horarios Plaza Cotorreo*
+
+Información disponible.
+
+9️⃣ Volver
+0️⃣ Menú principal`;
+      } else if (body === '4') {
+        setUserState(from, STATES.PLAZA_UBICACION);
+        respuesta = `📍 *Ubicación Plaza Cotorreo*
+
+Información disponible.
+
+9️⃣ Volver
+0️⃣ Menú principal`;
+      } else if (body === '5') {
+        setUserState(from, STATES.PLAZA_RESERVAS);
+        respuesta = `📅 *Reservas Plaza Cotorreo*
+
+Información disponible.
+
+9️⃣ Volver
+0️⃣ Menú principal`;
+      } else if (body === '6') {
+        setUserState(from, STATES.PLAZA_PAQUETES);
+        respuesta = `🎂 *Paquetes para fiestas*
+
+Información disponible.
+
+9️⃣ Volver
+0️⃣ Menú principal`;
+      } else {
+        respuesta = TEXTOS.PLAZA_MENU;
+      }
+      break;
+
+    case STATES.ALPADEL_MENU:
+      if (body === '1') {
+        setUserState(from, STATES.ALPADEL_PRECIOS);
+        respuesta = `💰 *Precios Alpadel*
+
+Información disponible.
+
+9️⃣ Volver
+0️⃣ Menú principal`;
+      } else if (body === '2') {
+        setUserState(from, STATES.ALPADEL_RESERVAS);
+        respuesta = `📅 *Reservas Alpadel*
+
+Información disponible.
+
+9️⃣ Volver
+0️⃣ Menú principal`;
+      } else if (body === '3') {
+        setUserState(from, STATES.ALPADEL_CLASES);
+        respuesta = `🎓 *Clases Alpadel*
+
+Información disponible.
+
+9️⃣ Volver
+0️⃣ Menú principal`;
+      } else if (body === '4') {
+        setUserState(from, STATES.ALPADEL_PROMOCIONES);
+        respuesta = `🎉 *Promociones Alpadel*
+
+Información disponible.
+
+9️⃣ Volver
+0️⃣ Menú principal`;
+      } else if (body === '5') {
+        setUserState(from, STATES.ALPADEL_PAQUETES);
+        respuesta = `🎾 *Paquetes para fiestas*
+
+Información disponible.
+
+9️⃣ Volver
+0️⃣ Menú principal`;
+      } else {
+        respuesta = TEXTOS.ALPADEL_MENU;
+      }
+      break;
+
+    case STATES.ASESOR:
+      respuesta = TEXTOS.ASESOR;
+      break;
+
+    default:
+      setUserState(from, STATES.MENU_PRINCIPAL);
+      respuesta = TEXTOS.MENU_PRINCIPAL;
+      break;
   }
 
-  if (session.step === "PLAZA_MENU_LISTA") {
-    return send(res,
-      "📖 *Menú Plaza Cotorreo*\n\n" +
-      "Consulta todos los platillos aquí:\n" +
-      "👉 https://linktr.ee/elcotorreocr\n\n" +
-      "Incluye:\n" +
-      "• Entradas\n• Tacos\n• Hamburguesas\n• Sushi\n• Pizzas\n• Bowls\n• Sopas\n• Menú infantil\n\n" +
-      "0️⃣ Volver | 9️⃣ Inicio"
-    );
-  }
-
-  if (session.step === "PLAZA_PROMOS") {
-    return send(res,
-      "🔥 *Promociones*\n\n" +
-      "🟢 Lunes: 2x1 Tacos\n" +
-      "🟢 Martes: 2x1 Sushi\n" +
-      "🟢 Miércoles: Quesabirrias\n" +
-      "🟢 Jueves: 3x2 Hamburguesas\n\n" +
-      "0️⃣ Volver | 9️⃣ Inicio"
-    );
-  }
-
-  if (session.step === "PLAZA_UBICACION") {
-    return send(res,
-      "📍 *Ubicación*\n\n" +
-      "Costado norte del Registro Civil\nCiudad Quesada\n\n" +
-      "https://maps.app.goo.gl/gjHqX1eifNHcywAdA\n\n" +
-      "0️⃣ Volver | 9️⃣ Inicio"
-    );
-  }
-
-  if (session.step === "PLAZA_HORARIOS") {
-    return send(res,
-      "⏰ *Horarios*\n\n" +
-      "L–J: 11:30am – 10:00pm\n" +
-      "Sáb: 11:30am – 12:00am\n" +
-      "Dom: 9:00am – 10:00pm\n\n" +
-      "0️⃣ Volver | 9️⃣ Inicio"
-    );
-  }
-
-  if (session.step === "PLAZA_RESERVAS") {
-    return send(res,
-      "🎉 *Reservas y Eventos*\n\n" +
-      "Envíanos:\n" +
-      "• Nombre\n• Fecha\n• Cantidad de personas\n\n" +
-      "Un asesor te confirmará 🙌\n\n" +
-      "0️⃣ Volver | 9️⃣ Inicio"
-    );
-  }
-
-  /* ===============================
-     ALPADEL
-  ================================ */
-  if (session.step === "ALPADEL_MENU") {
-    reply =
-      "🎾 *Alpadel*\n\n" +
-      "1️⃣ Precios\n" +
-      "2️⃣ Reservar cancha\n" +
-      "3️⃣ Clases\n" +
-      "4️⃣ Promociones\n" +
-      "5️⃣ Ubicación\n\n" +
-      "0️⃣ Volver | 9️⃣ Inicio";
-
-    if (msg === "1") goTo(session, "ALPADEL_PRECIOS");
-    if (msg === "2") goTo(session, "ALPADEL_RESERVA");
-    if (msg === "3") goTo(session, "ALPADEL_CLASES");
-    if (msg === "4") goTo(session, "ALPADEL_PROMOS");
-    if (msg === "5") goTo(session, "ALPADEL_UBICACION");
-
-    return send(res, reply);
-  }
-
-  if (session.step === "ALPADEL_PRECIOS") {
-    return send(res,
-      "💰 *Precios Alpadel*\n\n" +
-      "7am–3pm\n• Dobles ₡6.000\n• Singles ₡4.000\n\n" +
-      "4pm–10pm\n• Dobles ₡12.000\n• Singles ₡6.000\n\n" +
-      "Domingos ₡6.000 todo el día\n\n" +
-      "0️⃣ Volver | 9️⃣ Inicio"
-    );
-  }
-
-  if (session.step === "ALPADEL_RESERVA") {
-    return send(res,
-      "📅 *Reservar cancha*\n\n" +
-      "Playtomic:\n" +
-      "https://playtomic.io/tenant/a621d2de-72ad-4b8b-8913-a54e071f6f77\n\n" +
-      "O envíanos:\n• Fecha\n• Hora\n• Singles o Dobles\n\n" +
-      "Un humano confirmará 🙌\n\n" +
-      "0️⃣ Volver | 9️⃣ Inicio"
-    );
-  }
-
-  if (session.step === "ALPADEL_CLASES") {
-    return send(res,
-      "🎾 *Clases de Pádel*\n\n" +
-      "Fran Sánchez\n📱 7131 6051\n\n" +
-      "0️⃣ Volver | 9️⃣ Inicio"
-    );
-  }
-
-  if (session.step === "ALPADEL_PROMOS") {
-    return send(res,
-      "🎁 *Promociones*\n\n" +
-      "🎂 Cumpleañeros gratis\n" +
-      "🏢 Empresas/colegios (4): 50%\n" +
-      "🎫 ASTEC: 20%\n\n" +
-      "0️⃣ Volver | 9️⃣ Inicio"
-    );
-  }
-
-  if (session.step === "ALPADEL_UBICACION") {
-    return send(res,
-      "📍 *Ubicación Alpadel*\n\n" +
-      "https://maps.app.goo.gl/gjHqX1eifNHcywAdA\n\n" +
-      "0️⃣ Volver | 9️⃣ Inicio"
-    );
-  }
-
-  return send(res, "Escribe una opción válida 🙂\n\n0️⃣ Volver | 9️⃣ Inicio");
+  // ==============================
+  // RESPUESTA FINAL (UNA SOLA)
+  // ==============================
+  res.send(twimlResponse(respuesta));
 });
 
-/* ===============================
-   RESPUESTA TWILIO
-================================ */
-function send(res, message) {
-  res.set("Content-Type", "text/xml");
-  res.send(`<Response><Message>${message}</Message></Response>`);
-}
-
+// ==============================
+// Servidor
+// ==============================
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, () => {
-  console.log("Servidor activo en puerto " + PORT);
+  console.log(`Servidor WhatsApp activo en puerto ${PORT}`);
 });
