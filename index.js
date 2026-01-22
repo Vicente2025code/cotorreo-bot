@@ -560,12 +560,17 @@ function getCheckoutText(cart) {
   }
 
   let total = 0;
+  const summaryLines = [];
   cart.forEach((item) => {
     total += item.price * item.quantity;
+    const subtotal = item.price * item.quantity;
+    summaryLines.push(`✅ ${item.name} x${item.quantity} - ${formatCRC(subtotal)}`);
   });
 
   let reply = "¿Listo para confirmar tu pedido? 🙌\n\n";
-  reply += `Total: ${formatCRC(total)}\n\n`;
+  reply += "🧾 Detalle de tu pedido:\n";
+  reply += summaryLines.join("\n") + "\n\n";
+  reply += `💳 Total: ${formatCRC(total)}\n\n`;
   reply += "1 ✅ Confirmar pedido\n";
   reply += "2 🛒 Volver al carrito\n";
   reply += "0️⃣ Volver";
@@ -862,11 +867,19 @@ app.post("/whatsapp", (req, res) => {
     const cart = getUserCart(from);
 
     if (text === "1") {
+      const summaryLines = cart.map((item, index) => {
+        const subtotal = item.price * item.quantity;
+        return `✅ ${index + 1}. ${item.name} x${item.quantity} - ${formatCRC(subtotal)}`;
+      });
+      const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const summaryText = summaryLines.length
+        ? `\n🧾 Detalle de tu pedido:\n${summaryLines.join("\n")}\n\n💳 Total: ${formatCRC(total)}\n`
+        : "";
       cart.length = 0;
       userState[from] = "MENU_PRINCIPAL";
       return sendResponse(
         res,
-        `¡Pedido confirmado${profile.name ? `, ${profile.name}` : ""}! 🙌\nEl costo mencionado no incluye Express y empaque.\nGracias por elegirnos. En breve te contactamos para coordinar.\n\n9️⃣ Inicio`
+        `¡Pedido confirmado${profile.name ? `, ${profile.name}` : ""}! 🙌${summaryText}\nEl costo mencionado no incluye Express y empaque.\nGracias por elegirnos. En breve te contactamos para coordinar.\n\n9️⃣ Inicio`
       );
     }
 
