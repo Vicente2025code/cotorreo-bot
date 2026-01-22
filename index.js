@@ -22,23 +22,23 @@ const userReservationDraft = {};
 // ================================
 const MENU_PRINCIPAL_TEXT = `
 👋 ¡Bienvenido a *Grupo Cotorreo*!
-¿Que te gustaria hacer hoy? escribe el numero 👇
+¿Qué te gustaría hacer hoy? escribe el número 👇
 
-1️⃣ 🍽️ Cotorreo
-2️⃣ 🎾 Jugar padel en Alpadel
+1️⃣ 🍽️ Comer en Plaza Cotorreo
+2️⃣ 🎾 Jugar pádel en Alpadel
 3️⃣ 👤 Hablar con un asesor
 `;
 
 const PLAZA_MENU_TEXT = `
 🏢 *Plaza Cotorreo*
-¿En que te puedo ayudar?
+¿En qué te podemos ayudar hoy? 😊
 
-1️⃣ Menú y Realizar Pedido
-2️⃣ Promociones
-3️⃣ Horarios
-4️⃣ Ubicación
-5️⃣ Reservas
-6️⃣ Paquetes para fiestas
+1️⃣ 🍽️ Menú y realizar pedido
+2️⃣ 🎉 Promociones
+3️⃣ ⏰ Horarios
+4️⃣ 📍 Ubicación
+5️⃣ 📅 Reservas
+6️⃣ 🎈 Paquetes para fiestas
 
 0️⃣ Volver
 9️⃣ Inicio
@@ -46,20 +46,21 @@ const PLAZA_MENU_TEXT = `
 
 const ALPADEL_MENU_TEXT = `
 🎾 *Alpadel*
-¿Que te gustaria hacer?
+¿Qué te gustaría hacer hoy? 😊
 
-1️⃣ Precios
-2️⃣ Reservar cancha
-3️⃣ Clases
-4️⃣ Promociones
-5️⃣ Paquetes para fiestas
+1️⃣ 💰 Precios
+2️⃣ ✅ Reservar cancha
+3️⃣ 🎾 Clases
+4️⃣ 🎉 Promociones
+5️⃣ 🎈 Paquetes para fiestas
 
 0️⃣ Volver
 9️⃣ Inicio
 `;
 
 const ASESOR_TEXT = `
-👤 Un asesor te atendera en un momento. Si prefieres, tambien puedes llamarnos:
+👤 ¡Estamos para ayudarte! Un asesor te atenderá en un momento.
+Si prefieres, también puedes llamarnos:
 
 📞 Plaza Cotorreo: 2460-5050
 📞 Alpadel: 7131-6051
@@ -80,7 +81,7 @@ function isGlobalCommand(text) {
 }
 
 function getNamePrompt() {
-  return "Hola! Para brindarte un mejor servicio, dime tu nombre.";
+  return "¡Hola! Para brindarte un mejor servicio, dime tu nombre.";
 }
 
 function getMenuPrincipalText(name) {
@@ -136,25 +137,25 @@ function startReservation(from, location, kindLabel, kindExample, origin) {
 function getReservationSummary(reservation) {
   let reply = `Lugar elegido: ${reservation.location}\n`;
   if (reservation.id) {
-    reply += `Numero de reserva: ${reservation.id}\n`;
+    reply += `Número de reserva: ${reservation.id}\n`;
   }
   reply += `Nombre: ${reservation.name || ""}\n`;
   reply += `${reservation.kindLabel}: ${reservation.type}\n`;
   reply += `Personas: ${reservation.people}\n`;
   reply += `Fecha: ${reservation.date}\n`;
   reply += `Hora: ${reservation.time}\n`;
-  reply += `Telefono: ${reservation.phone}`;
+  reply += `Teléfono: ${reservation.phone}`;
   return reply;
 }
 
 function getReservationDetailsText(reservation) {
   if (!reservation) {
-    return "Aun no tienes reservas registradas. ¿Te ayudamos a reservar?\n\n0 Volver\n9 Inicio";
+    return "Aún no tienes reservas registradas. ¿Te ayudamos a reservar? ✨\n\n0️⃣ Volver\n9️⃣ Inicio";
   }
 
-  let reply = "Resumen de tu ultima reserva\n\n";
+  let reply = "Resumen de tu última reserva 📌\n\n";
   reply += `${getReservationSummary(reservation)}\n\n`;
-  reply += "0 Volver\n9 Inicio";
+  reply += "0️⃣ Volver\n9️⃣ Inicio";
   return reply;
 }
 
@@ -189,7 +190,7 @@ const PLAZA_MENU_CATEGORIES = [
     items: [
       { name: "Guacamole", price: 3500 },
       { name: "Caldos", price: 2800 },
-      { name: "Ceviche de chicharron", price: 4200 },
+      { name: "Ceviche de chicharrón", price: 4200 },
       { name: "Patacones", price: 3200 },
       { name: "Molcajete", price: 6500 }
     ]
@@ -200,7 +201,7 @@ const PLAZA_MENU_CATEGORIES = [
     items: [
       { name: "Tacos Pastor", price: 1800 },
       { name: "Tacos Birria", price: 2200 },
-      { name: "Tacos Camaron", price: 2500 },
+      { name: "Tacos Camarón", price: 2500 },
       { name: "Tacos Vegetarianos", price: 1600 }
     ]
   },
@@ -229,7 +230,7 @@ const PLAZA_MENU_CATEGORIES = [
     key: "CAT_PIZZAS",
     label: "Pizzas",
     items: [
-      { name: "Jamon y queso", price: 6500 },
+      { name: "Jamón y queso", price: 6500 },
       { name: "Pepperoni", price: 7000 },
       { name: "Birria", price: 8000 },
       { name: "Hawaiana", price: 6800 }
@@ -242,7 +243,7 @@ const PLAZA_MENU_CATEGORIES = [
       { name: "Cotorreo verde", price: 4200 },
       { name: "Poke bowl", price: 5500 },
       { name: "Pita", price: 4800 },
-      { name: "Brusheta", price: 3900 }
+      { name: "Bruschetta", price: 3900 }
     ]
   },
   {
@@ -258,14 +259,14 @@ const PLAZA_MENU_CATEGORIES = [
     key: "CAT_ARROCES",
     label: "Arroces y Pastas",
     items: [
-      { name: "Arroz con camaron", price: 7500 },
+      { name: "Arroz con camarón", price: 7500 },
       { name: "Arroz con pollo", price: 6800 },
       { name: "Pasta enchilada", price: 6200 }
     ]
   },
   {
     key: "CAT_INFANTIL",
-    label: "Menu Infantil",
+    label: "Menú Infantil",
     items: [
       { name: "Dedos de pollo", price: 3500 },
       { name: "Dedos de pescado", price: 3800 },
@@ -293,15 +294,29 @@ function formatCRC(amount) {
 }
 
 function getPlazaCategoriesText() {
-  let reply = "Con gusto! Aqui tienes nuestro menu completo para que elijas con tranquilidad :\n";
+  let reply = "¡Con gusto! 👇 Aquí tienes nuestro menú completo para que elijas con calma:\n";
   reply += PLAZA_MENU_LINK + "\n\n";
-  reply += "¿Que se te antoja hoy?\n\n";
+  reply += "¿Se te antoja algo rico hoy? 😋 Tenemos opciones para todos los gustos.\n";
+  reply += "Elige tu categoría favorita y arma tu pedido en segundos:\n\n";
 
   PLAZA_MENU_CATEGORIES.forEach((category, index) => {
-    reply += `${index + 1} - ${category.label}\n`;
+    const emojiNumber = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"][index] || `${index + 1}`;
+    const emojiByLabel = {
+      Entradas: "🥑",
+      Tacos: "🌮",
+      Hamburguesas: "🍔",
+      Sushi: "🍣",
+      Pizzas: "🍕",
+      Ensaladas: "🥗",
+      Sopas: "🍲",
+      "Arroces y Pastas": "🍝",
+      "Menú Infantil": "👧🧒"
+    };
+    const emoji = emojiByLabel[category.label] || "🍽️";
+    reply += `${emojiNumber} ${emoji} ${category.label}\n`;
   });
 
-  reply += "\n0 Volver\n9 Inicio";
+  reply += "\n0️⃣ Volver\n9️⃣ Inicio";
   return reply;
 }
 
@@ -315,16 +330,196 @@ function getCategoryText(categoryKey, hasCartItems) {
     return getPlazaCategoriesText();
   }
 
-  let reply = `Menu ${category.label}\nElige tu favorito:\n\n`;
+  if (category.label === "Entradas") {
+    const prices = category.items.reduce((acc, item) => {
+      acc[item.name] = formatCRC(item.price);
+      return acc;
+    }, {});
+    return (
+      "😎 *Entradas que hacen feliz al estómago*\n\n" +
+      "Dime… ¿cuál te guiña el ojo hoy? 👀🍴\n\n" +
+      `1️⃣ Guacamole — ${prices.Guacamole}\n` +
+      `2️⃣ Caldos — ${prices.Caldos}\n` +
+      `3️⃣ Ceviche de chicharrón — ${prices["Ceviche de chicharrón"]}\n` +
+      `4️⃣ Patacones — ${prices.Patacones}\n` +
+      `5️⃣ Molcajete — ${prices.Molcajete} (nivel pro 😏)\n\n` +
+      "🛒 Para mandarlo directo al carrito, escribe el número\n" +
+      "(no muerde, lo prometo)\n\n" +
+      "0️⃣ Volver\n" +
+      "9️⃣ Inicio"
+    );
+  }
+
+  if (category.label === "Tacos") {
+    const prices = category.items.reduce((acc, item) => {
+      acc[item.name] = formatCRC(item.price);
+      return acc;
+    }, {});
+    return (
+      "🌮 *Tacos que hacen historia*\n\n" +
+      "Aquí no hay decisiones malas… solo tacos increíbles 😋\n" +
+      "¿Cuál se te antoja hoy?\n\n" +
+      `1️⃣ Tacos Pastor — ${prices["Tacos Pastor"]} 🔥\n` +
+      `2️⃣ Tacos Birria — ${prices["Tacos Birria"]} ⭐\n` +
+      `3️⃣ Tacos Camarón — ${prices["Tacos Camarón"]} 🦐\n` +
+      `4️⃣ Tacos Vegetarianos — ${prices["Tacos Vegetarianos"]} 🌱\n\n` +
+      "👉 *Para agregar al carrito*, escribe el número del taco\n" +
+      "🛒 (tranquilo, después puedes pedir más 😉)\n\n" +
+      "0️⃣ Volver\n" +
+      "9️⃣ Inicio"
+    );
+  }
+
+  if (category.label === "Hamburguesas") {
+    const prices = category.items.reduce((acc, item) => {
+      acc[item.name] = formatCRC(item.price);
+      return acc;
+    }, {});
+    return (
+      "🍔 *Hamburguesas para caer rendido*\n\n" +
+      "Jugosas, poderosas y con mucho sabor 😍\n" +
+      "¿Cuál te vas a pedir hoy?\n\n" +
+      `1️⃣ Supreme — ${prices.Supreme} 👑\n` +
+      `2️⃣ BBQ — ${prices.BBQ} 🔥\n` +
+      `3️⃣ Chicken — ${prices.Chicken} 🍗\n` +
+      `4️⃣ Birria — ${prices.Birria} 🌮\n` +
+      `5️⃣ Parrillada — ${prices.Parrillada} 🥩\n\n` +
+      "👉 Para agregar al carrito, escribe el número\n" +
+      "🛒 (si quieres combo, dímelo y te ayudamos)\n\n" +
+      "0️⃣ Volver\n" +
+      "9️⃣ Inicio"
+    );
+  }
+
+  if (category.label === "Sushi") {
+    const prices = category.items.reduce((acc, item) => {
+      acc[item.name] = formatCRC(item.price);
+      return acc;
+    }, {});
+    return (
+      "🍣 *Sushi que enamora a primera mordida*\n\n" +
+      "Fresco, balanceado y con sabor top ✨\n" +
+      "¿Cuál roll te vas a dar hoy?\n\n" +
+      `1️⃣ California Roll — ${prices["California Roll"]} 🥢\n` +
+      `2️⃣ Tico Roll — ${prices["Tico Roll"]} 🌴\n` +
+      `3️⃣ Crazy Roll — ${prices["Crazy Roll"]} 🤯\n` +
+      `4️⃣ Teriyaki Roll — ${prices["Teriyaki Roll"]} 🍱\n\n` +
+      "👉 Para agregar al carrito, escribe el número\n" +
+      "🛒 (si quieres recomendación, dímelo 😉)\n\n" +
+      "0️⃣ Volver\n" +
+      "9️⃣ Inicio"
+    );
+  }
+
+  if (category.label === "Pizzas") {
+    const prices = category.items.reduce((acc, item) => {
+      acc[item.name] = formatCRC(item.price);
+      return acc;
+    }, {});
+    return (
+      "🍕 *Pizzas que alegran cualquier plan*\n\n" +
+      "Crujientes, generosas y llenas de sabor 😍\n" +
+      "¿Cuál te vas a pedir hoy?\n\n" +
+      `1️⃣ Jamón y queso — ${prices["Jamón y queso"]} 🧀\n` +
+      `2️⃣ Pepperoni — ${prices.Pepperoni} 🌶️\n` +
+      `3️⃣ Birria — ${prices.Birria} 🔥\n` +
+      `4️⃣ Hawaiana — ${prices.Hawaiana} 🍍\n\n` +
+      "👉 Para agregar al carrito, escribe el número\n" +
+      "🛒 (si quieres extra queso, dímelo 😉)\n\n" +
+      "0️⃣ Volver\n" +
+      "9️⃣ Inicio"
+    );
+  }
+
+  if (category.label === "Ensaladas") {
+    const prices = category.items.reduce((acc, item) => {
+      acc[item.name] = formatCRC(item.price);
+      return acc;
+    }, {});
+    return (
+      "🥗 *Ensaladas frescas para sentirte ligero*\n\n" +
+      "Color, sabor y frescura en cada bocado ✨\n" +
+      "¿Cuál se te antoja hoy?\n\n" +
+      `1️⃣ Cotorreo verde — ${prices["Cotorreo verde"]} 🥬\n` +
+      `2️⃣ Poke bowl — ${prices["Poke bowl"]} 🐟\n` +
+      `3️⃣ Pita — ${prices.Pita} 🫓\n` +
+      `4️⃣ Bruschetta — ${prices.Bruschetta} 🍅\n\n` +
+      "👉 Para agregar al carrito, escribe el número\n" +
+      "🛒 (si quieres algo más ligero o más completo, te ayudo)\n\n" +
+      "0️⃣ Volver\n" +
+      "9️⃣ Inicio"
+    );
+  }
+
+  if (category.label === "Sopas") {
+    const prices = category.items.reduce((acc, item) => {
+      acc[item.name] = formatCRC(item.price);
+      return acc;
+    }, {});
+    return (
+      "🍲 *Sopas que reconfortan el alma*\n\n" +
+      "Calientitas, sabrosas y perfectas para antojo 😌\n" +
+      "¿Cuál te apetece hoy?\n\n" +
+      `1️⃣ Ramen Tonkotsu — ${prices["Ramen Tonkotsu"]} 🍜\n` +
+      `2️⃣ Ramen Birria — ${prices["Ramen Birria"]} 🔥\n` +
+      `3️⃣ Sopa Azteca — ${prices["Sopa Azteca"]} 🌶️\n\n` +
+      "👉 Para agregar al carrito, escribe el número\n" +
+      "🛒 (si quieres algo más suave o más picante, dime)\n\n" +
+      "0️⃣ Volver\n" +
+      "9️⃣ Inicio"
+    );
+  }
+
+  if (category.label === "Arroces y Pastas") {
+    const prices = category.items.reduce((acc, item) => {
+      acc[item.name] = formatCRC(item.price);
+      return acc;
+    }, {});
+    return (
+      "🍝 *Arroces y pastas que llenan el alma*\n\n" +
+      "Sabrosos, completos y perfectos para quedar feliz 😋\n" +
+      "¿Cuál se te antoja hoy?\n\n" +
+      `1️⃣ Arroz con camarón — ${prices["Arroz con camarón"]} 🦐\n` +
+      `2️⃣ Arroz con pollo — ${prices["Arroz con pollo"]} 🍗\n` +
+      `3️⃣ Pasta enchilada — ${prices["Pasta enchilada"]} 🌶️\n\n` +
+      "👉 Para agregar al carrito, escribe el número\n" +
+      "🛒 (si quieres algo más suave o más picante, te ayudo)\n\n" +
+      "0️⃣ Volver\n" +
+      "9️⃣ Inicio"
+    );
+  }
+
+if (category.label === "Menú Infantil") {
+    const prices = category.items.reduce((acc, item) => {
+      acc[item.name] = formatCRC(item.price);
+      return acc;
+    }, {});
+    return (
+      "👧🧒 *Menú infantil para sonrisas felices*\n\n" +
+      "Rico, divertido y perfecto para los peques 😄\n" +
+      "¿Cuál eliges hoy?\n\n" +
+      `1️⃣ Dedos de pollo — ${prices["Dedos de pollo"]} 🍗\n` +
+      `2️⃣ Dedos de pescado — ${prices["Dedos de pescado"]} 🐟\n` +
+      `3️⃣ Hamburguesa infantil — ${prices["Hamburguesa infantil"]} 🍔\n\n` +
+      "👉 Para agregar al carrito, escribe el número\n" +
+      "🛒 (si quieres bebida para niños, dímelo y te ayudo)\n\n" +
+      "0️⃣ Volver\n" +
+      "9️⃣ Inicio"
+    );
+  }
+
+  let reply = `🍽️ Menú ${category.label}\nElige tu favorito y armamos tu pedido en segundos:\n\n`;
+  const emojiNumbers = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
   category.items.forEach((item, index) => {
-    reply += `${index + 1}. ${item.name} - ${formatCRC(item.price)}\n`;
+    const emojiNumber = emojiNumbers[index] || `${index + 1}.`;
+    reply += `${emojiNumber} ${item.name} - ${formatCRC(item.price)}\n`;
   });
 
-  reply += "\nPara agregar al carrito, escribe el numero del platillo.\n";
+  reply += "\n👉 Para agregar al carrito, escribe el número del platillo.\n";
   if (hasCartItems) {
-    reply += "Escribe 'carrito' para revisar tu carrito.\n";
+    reply += "🛒 Escribe 'carrito' para revisar tu carrito.\n";
   }
-  reply += "0 Volver\n9 Inicio";
+  reply += "0️⃣ Volver\n9️⃣ Inicio";
   return reply;
 }
 
@@ -341,10 +536,10 @@ function addItemToCart(cart, item) {
 
 function getCartText(cart) {
   if (!cart.length) {
-    return "Tu carrito esta vacio por ahora. ¿Quieres ver el menu?\n\n0 Volver\n9 Inicio";
+    return "Tu carrito está vacío por ahora. ¿Quieres ver el menú? 😋\n\n0️⃣ Volver\n9️⃣ Inicio";
   }
 
-  let reply = "Tu carrito, listo para ti:\n\n";
+  let reply = "🛒 Tu carrito, listo para ti:\n\n";
   let total = 0;
   cart.forEach((item, index) => {
     const subtotal = item.price * item.quantity;
@@ -353,9 +548,9 @@ function getCartText(cart) {
   });
 
   reply += `\nTotal: ${formatCRC(total)}\n\n`;
-  reply += "1 Confirmar y pagar\n";
-  reply += "2 Vaciar carrito\n";
-  reply += "0 Volver\n9 Inicio";
+  reply += "1 ✅ Confirmar y pagar\n";
+  reply += "2 🧹 Vaciar carrito\n";
+  reply += "0️⃣ Volver\n9️⃣ Inicio";
   return reply;
 }
 
@@ -369,11 +564,11 @@ function getCheckoutText(cart) {
     total += item.price * item.quantity;
   });
 
-  let reply = "¿Listo para confirmar tu pedido?\n\n";
+  let reply = "¿Listo para confirmar tu pedido? 🙌\n\n";
   reply += `Total: ${formatCRC(total)}\n\n`;
-  reply += "1 Confirmar pedido\n";
-  reply += "2 Volver al carrito\n";
-  reply += "0 Volver";
+  reply += "1 ✅ Confirmar pedido\n";
+  reply += "2 🛒 Volver al carrito\n";
+  reply += "0️⃣ Volver";
   return reply;
 }
 
@@ -488,7 +683,7 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "PLAZA_PROMOCIONES";
       return sendResponse(
         res,
-        "🎉 Promociones Plaza Cotorreo\n\nDescubre nuestras promos especiales y disfruta mas por menos.\n\n0️⃣ Volver\n9️⃣ Inicio"
+        "🎉 Promociones Plaza Cotorreo\n\nAprovecha nuestras promos especiales y disfruta más por menos. 😋\n\n0️⃣ Volver\n9️⃣ Inicio"
       );
     }
 
@@ -496,7 +691,7 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "PLAZA_HORARIOS";
       return sendResponse(
         res,
-        "⏰ Horarios Plaza Cotorreo\n\nEstamos listos para atenderte.\n\n0️⃣ Volver\n9️⃣ Inicio"
+        "⏰ Horarios Plaza Cotorreo\n\nEstamos listos para atenderte. Si necesitas un horario especial, escríbenos. 😊\n\n0️⃣ Volver\n9️⃣ Inicio"
       );
     }
 
@@ -504,7 +699,7 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "PLAZA_UBICACION";
       return sendResponse(
         res,
-        "📍 Ubicación Plaza Cotorreo\n\nTe compartimos la ubicacion exacta https://maps.app.goo.gl/9GcpyAffmQFQU61u9.\n\n0️⃣ Volver\n9️⃣ Inicio"
+        "📍 Ubicación Plaza Cotorreo\n\nTe compartimos la ubicación exacta: https://maps.app.goo.gl/9GcpyAffmQFQU61u9\n¡Te esperamos! 🙌\n\n0️⃣ Volver\n9️⃣ Inicio"
       );
     }
 
@@ -527,7 +722,7 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "PLAZA_PAQUETES";
       return sendResponse(
         res,
-        "🎈 Paquetes para fiestas Plaza Cotorreo\n\nCelebra con nosotros. Pregunta por opciones y precios.\n\n0️⃣ Volver\n9️⃣ Inicio"
+        "🎈 Paquetes para fiestas Plaza Cotorreo\n\nCelebra con nosotros. Pregunta por opciones y precios. 🎉\n\n0️⃣ Volver\n9️⃣ Inicio"
       );
     }
 
@@ -590,7 +785,7 @@ app.post("/whatsapp", (req, res) => {
         res,
         "¡Listo! Agregamos a tu carrito:\n" +
           `${item.name} - ${formatCRC(item.price)}\n\n` +
-          "1 Seguir viendo el menu\n" +
+          "1 Seguir viendo el menú\n" +
           "2 Ver carrito\n" +
           "3 Pagar ahora\n" +
           "0 Volver\n" +
@@ -632,7 +827,7 @@ app.post("/whatsapp", (req, res) => {
 
     return sendResponse(
       res,
-      "¿Que deseas hacer ahora?\n1 Seguir viendo el menu\n2 Ver carrito\n3 Pagar ahora\n0 Volver\n9 Inicio"
+      "¿Qué deseas hacer ahora?\n1 Seguir viendo el menú\n2 Ver carrito\n3 Pagar ahora\n0 Volver\n9 Inicio"
     );
   }
 
@@ -649,7 +844,7 @@ app.post("/whatsapp", (req, res) => {
 
     if (text === "2") {
       cart.length = 0;
-      return sendResponse(res, "Listo, vaciamos tu carrito.\n\n0 Volver\n9 Inicio");
+      return sendResponse(res, "Listo, tu carrito quedó en cero. ¿Te muestro el menú? 😋\n\n0️⃣ Volver\n9️⃣ Inicio");
     }
 
     if (text === "0") {
@@ -671,7 +866,7 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "MENU_PRINCIPAL";
       return sendResponse(
         res,
-        `¡Pedido confirmado${profile.name ? `, ${profile.name}` : ""}! El costo mencionado no incluye Express y empaque. Gracias por elegirnos. En breve te contactamos para coordinar.\n\n9 Inicio`
+        `¡Pedido confirmado${profile.name ? `, ${profile.name}` : ""}! 🙌\nEl costo mencionado no incluye Express y empaque.\nGracias por elegirnos. En breve te contactamos para coordinar.\n\n9️⃣ Inicio`
       );
     }
 
@@ -701,7 +896,7 @@ app.post("/whatsapp", (req, res) => {
 
     draft.type = rawText;
     userState[from] = "RESERVA_PERSONAS";
-    return sendResponse(res, "¿Para cuantas personas es la reserva?");
+    return sendResponse(res, "¿Para cuántas personas es la reserva? 👥");
   }
 
   if (userState[from] === "RESERVA_PERSONAS") {
@@ -711,13 +906,13 @@ app.post("/whatsapp", (req, res) => {
 
     const count = parseInt(text, 10);
     if (Number.isNaN(count) || count < 1 || count > 20) {
-      return sendResponse(res, "Por favor ingresa un numero valido (1-20).");
+      return sendResponse(res, "Por favor ingresa un número válido (1-20).");
     }
 
     const draft = getReservationDraft(from);
     draft.people = count;
     userState[from] = "RESERVA_FECHA";
-    return sendResponse(res, "¿Que fecha prefieres? (ej: 15 de diciembre)");
+    return sendResponse(res, "¿Qué fecha prefieres? 📅 (ej: 15 de diciembre)");
   }
 
   if (userState[from] === "RESERVA_FECHA") {
@@ -726,13 +921,13 @@ app.post("/whatsapp", (req, res) => {
     }
 
     if (!rawText) {
-      return sendResponse(res, "¿Que fecha prefieres? (ej: 15 de diciembre)");
+      return sendResponse(res, "¿Qué fecha prefieres? 📅 (ej: 15 de diciembre)");
     }
 
     const draft = getReservationDraft(from);
     draft.date = rawText;
     userState[from] = "RESERVA_HORA";
-    return sendResponse(res, "¿A que hora? (ej: 7:00 PM)");
+    return sendResponse(res, "¿A qué hora? ⏰ (ej: 7:00 PM)");
   }
 
   if (userState[from] === "RESERVA_HORA") {
@@ -741,13 +936,13 @@ app.post("/whatsapp", (req, res) => {
     }
 
     if (!rawText) {
-      return sendResponse(res, "¿A que hora? (ej: 7:00 PM)");
+      return sendResponse(res, "¿A qué hora? ⏰ (ej: 7:00 PM)");
     }
 
     const draft = getReservationDraft(from);
     draft.time = rawText;
     userState[from] = "RESERVA_TELEFONO";
-    return sendResponse(res, "Telefono de contacto para confirmar:");
+    return sendResponse(res, "Teléfono de contacto para confirmar: 📱");
   }
 
   if (userState[from] === "RESERVA_TELEFONO") {
@@ -756,7 +951,7 @@ app.post("/whatsapp", (req, res) => {
     }
 
     if (!rawText) {
-      return sendResponse(res, "Telefono de contacto para confirmar:");
+      return sendResponse(res, "Teléfono de contacto para confirmar: 📱");
     }
 
     const draft = getReservationDraft(from);
@@ -770,7 +965,7 @@ app.post("/whatsapp", (req, res) => {
 
     return sendResponse(
       res,
-      "Por favor confirma tu reserva:\n\n" + summary + "\n\n1 Confirmar\n2 Cancelar"
+      "Por favor confirma tu reserva: ✅\n\n" + summary + "\n\n1 Confirmar\n2 Cancelar"
     );
   }
 
@@ -793,13 +988,13 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "MENU_PRINCIPAL";
       return sendResponse(
         res,
-        `¡Reserva confirmada${profile.name ? `, ${profile.name}` : ""}! Gracias por elegirnos.\nNumero: ${reservationId}\n\n9 Inicio`
+        `¡Reserva confirmada${profile.name ? `, ${profile.name}` : ""}! 🎉\nGracias por elegirnos.\nNúmero: ${reservationId}\n\n9️⃣ Inicio`
       );
     }
 
     if (text === "2" || text === "0") {
       const exitText = getReservationExitText(from, profile);
-      return sendResponse(res, "Reserva cancelada. Si deseas, podemos agendar otra.\n\n" + exitText);
+      return sendResponse(res, "Reserva cancelada. Si deseas, podemos agendar otra. 🙌\n\n" + exitText);
     }
 
     const draft = getReservationDraft(from);
@@ -809,7 +1004,7 @@ app.post("/whatsapp", (req, res) => {
     });
     return sendResponse(
       res,
-      "Por favor confirma tu reserva:\n\n" + summary + "\n\n1 Confirmar\n2 Cancelar"
+      "Por favor confirma tu reserva: ✅\n\n" + summary + "\n\n1 Confirmar\n2 Cancelar"
     );
   }
 
@@ -844,22 +1039,22 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "ALPADEL_PRECIOS";
       return sendResponse(
         res,
-        `ðŸ’° Precios Alpadel
+        `💰 Precios Alpadel
 
-ðŸ•– 7am â€“ 3pm
-â€¢ Dobles: â‚¡6.000
-â€¢ Singles: â‚¡4.000
+🕖 7am – 3pm
+• Dobles: ₡6.000
+• Singles: ₡4.000
 
-ðŸ•“ 4pm â€“ 10pm
-â€¢ Dobles: â‚¡12.000
-â€¢ Singles: â‚¡6.000
+🕓 4pm – 10pm
+• Dobles: ₡12.000
+• Singles: ₡6.000
 
-â˜€ï¸ Domingos: â‚¡6.000 todo el dÃ­a
+☀️ Domingos: ₡6.000 todo el día
 
-ðŸ“… Para reservar, vuelve y elige â€œReservarâ€.
+📌 Para reservar, vuelve y elige “Reservar”.
 
-0ï¸âƒ£ Volver
-9ï¸âƒ£ Inicio`
+0️⃣ Volver
+9️⃣ Inicio`
       );
     }
 
@@ -882,7 +1077,7 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "ALPADEL_CLASES";
       return sendResponse(
         res,
-        "🎾 Clases de pádel\n\nMejora tu juego con nuestros entrenadores. Pregunta por horarios.\n\n0️⃣ Volver\n9️⃣ Inicio"
+        "🎾 Clases de pádel\n\nMejora tu juego con nuestros entrenadores. Pregunta por horarios. 💪\n\n0️⃣ Volver\n9️⃣ Inicio"
       );
     }
 
@@ -890,7 +1085,7 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "ALPADEL_PROMOCIONES";
       return sendResponse(
         res,
-        "🎉 Promociones Alpadel\n\nAprovecha nuestras promos y reserva tu cancha.\n\n0️⃣ Volver\n9️⃣ Inicio"
+        "🎉 Promociones Alpadel\n\nAprovecha nuestras promos y reserva tu cancha. ✅\n\n0️⃣ Volver\n9️⃣ Inicio"
       );
     }
 
@@ -898,7 +1093,7 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "ALPADEL_PAQUETES";
       return sendResponse(
         res,
-        "🎈 Paquetes para fiestas Alpadel\n\nArma tu evento con cancha incluida. Consultanos.\n\n0️⃣ Volver\n9️⃣ Inicio"
+        "🎈 Paquetes para fiestas Alpadel\n\nArma tu evento con cancha incluida. Consúltanos. 🎉\n\n0️⃣ Volver\n9️⃣ Inicio"
       );
     }
 
