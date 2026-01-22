@@ -13,6 +13,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 const userState = {};
 const userCart = {};
 const userMeta = {};
+const userProfile = {};
 
 // ================================
 // TEXTOS (FÁCILES DE EDITAR)
@@ -61,6 +62,32 @@ const ASESOR_TEXT = `
 0️⃣ Volver
 9️⃣ Inicio
 `;
+
+function getUserProfile(from) {
+  if (!userProfile[from]) {
+    userProfile[from] = { name: null };
+  }
+  return userProfile[from];
+}
+
+function isGlobalCommand(text) {
+  return ["menu", "menú", "inicio", "hola", "9", "asesor", "carrito"].includes(text);
+}
+
+function getNamePrompt() {
+  return "Hola! Para continuar, dime tu nombre.";
+}
+
+function getMenuPrincipalText(name) {
+  if (!name) {
+    return MENU_PRINCIPAL_TEXT;
+  }
+
+  return MENU_PRINCIPAL_TEXT.replace(
+    "Bienvenido a *Grupo Cotorreo*",
+    `Hola ${name}! Bienvenido a *Grupo Cotorreo*`
+  );
+}
 
 // ================================
 // MENU Y CARRITO
@@ -276,7 +303,8 @@ function sendResponse(res, message) {
 // ================================
 app.post("/whatsapp", (req, res) => {
   const from = req.body.From;
-  const text = (req.body.Body || "").trim().toLowerCase();
+  const rawText = (req.body.Body || "").trim();
+  const text = rawText.toLowerCase();
 
   // ================================
   // INICIALIZAR ESTADO
@@ -286,13 +314,32 @@ app.post("/whatsapp", (req, res) => {
   }
   getUserCart(from);
   getUserMeta(from);
+  const profile = getUserProfile(from);
+
+  // ================================
+  // ONBOARDING NOMBRE
+  // ================================
+  if (userState[from] === "ASK_NAME") {
+    if (!rawText || isGlobalCommand(text)) {
+      return sendResponse(res, getNamePrompt());
+    }
+
+    profile.name = rawText;
+    userState[from] = "MENU_PRINCIPAL";
+    return sendResponse(res, getMenuPrincipalText(profile.name));
+  }
+
+  if (!profile.name) {
+    userState[from] = "ASK_NAME";
+    return sendResponse(res, getNamePrompt());
+  }
 
   // ================================
   // COMANDOS GLOBALES
   // ================================
   if (["menu", "menú", "inicio", "hola", "9"].includes(text)) {
     userState[from] = "MENU_PRINCIPAL";
-    return sendResponse(res, MENU_PRINCIPAL_TEXT);
+    return sendResponse(res, getMenuPrincipalText(profile.name));
   }
 
   if (text === "asesor") {
@@ -324,7 +371,7 @@ app.post("/whatsapp", (req, res) => {
       return sendResponse(res, ASESOR_TEXT);
     }
 
-    return sendResponse(res, MENU_PRINCIPAL_TEXT);
+    return sendResponse(res, getMenuPrincipalText(profile.name));
   }
 
   // ================================
@@ -353,7 +400,12 @@ app.post("/whatsapp", (req, res) => {
 
     if (text === "5") {
       userState[from] = "PLAZA_RESERVAS";
-      return sendResponse(res, "📅 Reservas Plaza Cotorreo\n\n0️⃣ Volver\n9️⃣ Inicio");
+      return sendResponse(
+        res,
+        "Reservas Plaza Cotorreo\n" +
+          (profile.name ? `Nombre: ${profile.name}\n\n` : "\n") +
+          "0 Volver\n9 Inicio"
+      );
     }
 
     if (text === "6") {
@@ -363,7 +415,7 @@ app.post("/whatsapp", (req, res) => {
 
     if (text === "0") {
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, MENU_PRINCIPAL_TEXT);
+      return sendResponse(res, getMenuPrincipalText(profile.name));
     }
 
     return sendResponse(res, PLAZA_MENU_TEXT);
@@ -494,7 +546,10 @@ app.post("/whatsapp", (req, res) => {
     if (text === "1") {
       cart.length = 0;
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, "Pedido confirmado. Te contactaremos pronto.\n\n9 Inicio");
+      return sendResponse(
+        res,
+        `Pedido confirmado${profile.name ? `, ${profile.name}` : ""}. Te contactaremos pronto.\n\n9 Inicio`
+      );
     }
 
     if (text === "2" || text === "0") {
@@ -527,7 +582,12 @@ app.post("/whatsapp", (req, res) => {
 
     if (text === "2") {
       userState[from] = "ALPADEL_RESERVAS";
-      return sendResponse(res, "📅 Reservar cancha\n\n0️⃣ Volver\n9️⃣ Inicio");
+      return sendResponse(
+        res,
+        "Reservar cancha\n" +
+          (profile.name ? `Nombre: ${profile.name}\n\n` : "\n") +
+          "0 Volver\n9 Inicio"
+      );
     }
 
     if (text === "3") {
@@ -547,7 +607,7 @@ app.post("/whatsapp", (req, res) => {
 
     if (text === "0") {
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, MENU_PRINCIPAL_TEXT);
+      return sendResponse(res, getMenuPrincipalText(profile.name));
     }
 
     return sendResponse(res, ALPADEL_MENU_TEXT);
@@ -570,7 +630,7 @@ app.post("/whatsapp", (req, res) => {
   if (userState[from] === "ASESOR") {
     if (text === "0") {
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, MENU_PRINCIPAL_TEXT);
+      return sendResponse(res, getMenuPrincipalText(profile.name));
     }
 
     return sendResponse(res, ASESOR_TEXT);
@@ -580,7 +640,7 @@ app.post("/whatsapp", (req, res) => {
   // FALLBACK ABSOLUTO
   // ================================
   userState[from] = "MENU_PRINCIPAL";
-  return sendResponse(res, MENU_PRINCIPAL_TEXT);
+  return sendResponse(res, getMenuPrincipalText(profile.name));
 });
 
 // ================================
