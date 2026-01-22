@@ -221,7 +221,7 @@ function getCategoryByKey(key) {
   return PLAZA_MENU_CATEGORIES.find((category) => category.key === key);
 }
 
-function getCategoryText(categoryKey) {
+function getCategoryText(categoryKey, hasCartItems) {
   const category = getCategoryByKey(categoryKey);
   if (!category) {
     return getPlazaCategoriesText();
@@ -233,6 +233,9 @@ function getCategoryText(categoryKey) {
   });
 
   reply += "\nPara agregar, escribe el numero del platillo.\n";
+  if (hasCartItems) {
+    reply += "Escribe 'carrito' para ver tu carrito.\n";
+  }
   reply += "0 Volver\n9 Inicio";
   return reply;
 }
@@ -435,7 +438,7 @@ app.post("/whatsapp", (req, res) => {
       const categoryKey = PLAZA_MENU_CATEGORIES[choice - 1].key;
       userState[from] = categoryKey;
       getUserMeta(from).lastCategory = categoryKey;
-      return sendResponse(res, getCategoryText(categoryKey));
+      return sendResponse(res, getCategoryText(categoryKey, getUserCart(from).length > 0));
     }
 
     return sendResponse(res, getPlazaCategoriesText());
@@ -445,6 +448,11 @@ app.post("/whatsapp", (req, res) => {
   // PLAZA COTORREO CATEGORY ITEMS
   // ================================
   if (userState[from].startsWith("CAT_")) {
+    if (text === "carrito" && getUserCart(from).length > 0) {
+      userState[from] = "VIEW_CART";
+      return sendResponse(res, getCartText(getUserCart(from)));
+    }
+
     if (text === "0") {
       userState[from] = "PLAZA_MENU_CATEGORIES";
       return sendResponse(res, getPlazaCategoriesText());
@@ -475,7 +483,7 @@ app.post("/whatsapp", (req, res) => {
       );
     }
 
-    return sendResponse(res, getCategoryText(category.key));
+    return sendResponse(res, getCategoryText(category.key, getUserCart(from).length > 0));
   }
 
   // ================================
@@ -486,7 +494,7 @@ app.post("/whatsapp", (req, res) => {
       const lastCategory = getUserMeta(from).lastCategory;
       if (lastCategory) {
         userState[from] = lastCategory;
-        return sendResponse(res, getCategoryText(lastCategory));
+        return sendResponse(res, getCategoryText(lastCategory, getUserCart(from).length > 0));
       }
       userState[from] = "PLAZA_MENU_CATEGORIES";
       return sendResponse(res, getPlazaCategoriesText());
