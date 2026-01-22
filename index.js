@@ -22,19 +22,18 @@ const userReservationDraft = {};
 // ================================
 const MENU_PRINCIPAL_TEXT = `
 👋 ¡Bienvenido a *Grupo Cotorreo*!
-¿Que te gustaria hacer hoy? 👇
+¿Que te gustaria hacer hoy? escribe el numero 👇
 
-1️⃣ 🍽️ Comer en Plaza Cotorreo
+1️⃣ 🍽️ Cotorreo
 2️⃣ 🎾 Jugar padel en Alpadel
 3️⃣ 👤 Hablar con un asesor
-4️⃣ 📅 Mis reservas
 `;
 
 const PLAZA_MENU_TEXT = `
 🏢 *Plaza Cotorreo*
-¿En que te apetece hoy?
+¿En que te puedo ayudar?
 
-1️⃣ Menú
+1️⃣ Menú y Realizar Pedido
 2️⃣ Promociones
 3️⃣ Horarios
 4️⃣ Ubicación
@@ -294,9 +293,9 @@ function formatCRC(amount) {
 }
 
 function getPlazaCategoriesText() {
-  let reply = "Con gusto! Aqui tienes nuestro menu completo para que elijas con tranquilidad:\n";
+  let reply = "Con gusto! Aqui tienes nuestro menu completo para que elijas con tranquilidad :\n";
   reply += PLAZA_MENU_LINK + "\n\n";
-  reply += "¿Que categoria se te antoja hoy?\n\n";
+  reply += "¿Que se te antoja hoy?\n\n";
 
   PLAZA_MENU_CATEGORIES.forEach((category, index) => {
     reply += `${index + 1} - ${category.label}\n`;
@@ -497,7 +496,7 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "PLAZA_HORARIOS";
       return sendResponse(
         res,
-        "⏰ Horarios Plaza Cotorreo\n\nEstamos listos para atenderte. Escribe si necesitas un horario especial.\n\n0️⃣ Volver\n9️⃣ Inicio"
+        "⏰ Horarios Plaza Cotorreo\n\nEstamos listos para atenderte.\n\n0️⃣ Volver\n9️⃣ Inicio"
       );
     }
 
@@ -505,7 +504,7 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "PLAZA_UBICACION";
       return sendResponse(
         res,
-        "📍 Ubicación Plaza Cotorreo\n\nTe compartimos la ubicacion exacta cuando gustes.\n\n0️⃣ Volver\n9️⃣ Inicio"
+        "📍 Ubicación Plaza Cotorreo\n\nTe compartimos la ubicacion exacta https://maps.app.goo.gl/9GcpyAffmQFQU61u9.\n\n0️⃣ Volver\n9️⃣ Inicio"
       );
     }
 
@@ -515,7 +514,7 @@ app.post("/whatsapp", (req, res) => {
         from,
         "Plaza Cotorreo",
         "Tipo de mesa",
-        "ej: interior, terraza",
+        "ej: Planta Baja, Planta Alta",
         "PLAZA_MENU"
       );
       return sendResponse(
@@ -672,7 +671,7 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "MENU_PRINCIPAL";
       return sendResponse(
         res,
-        `¡Pedido confirmado${profile.name ? `, ${profile.name}` : ""}! Gracias por elegirnos. En breve te contactamos para coordinar.\n\n9 Inicio`
+        `¡Pedido confirmado${profile.name ? `, ${profile.name}` : ""}! El costo mencionado no incluye Express y empaque. Gracias por elegirnos. En breve te contactamos para coordinar.\n\n9 Inicio`
       );
     }
 
@@ -733,7 +732,7 @@ app.post("/whatsapp", (req, res) => {
     const draft = getReservationDraft(from);
     draft.date = rawText;
     userState[from] = "RESERVA_HORA";
-    return sendResponse(res, "¿A que hora? (ej: 7:30 PM)");
+    return sendResponse(res, "¿A que hora? (ej: 7:00 PM)");
   }
 
   if (userState[from] === "RESERVA_HORA") {
@@ -742,7 +741,7 @@ app.post("/whatsapp", (req, res) => {
     }
 
     if (!rawText) {
-      return sendResponse(res, "¿A que hora? (ej: 7:30 PM)");
+      return sendResponse(res, "¿A que hora? (ej: 7:00 PM)");
     }
 
     const draft = getReservationDraft(from);
@@ -845,7 +844,17 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "ALPADEL_PRECIOS";
       return sendResponse(
         res,
-        "💰 Precios Alpadel\n\nTenemos opciones para cada necesidad. Consultanos por la tarifa ideal.\n\n0️⃣ Volver\n9️⃣ Inicio"
+        "💰 Precios Alpadel\n\n🕖 7am – 3pm
+• Dobles: ₡6.000
+• Singles: ₡4.000
+
+🕓 4pm – 10pm
+• Dobles: ₡12.000
+• Singles: ₡6.000
+
+☀️ Domingos: ₡6.000 todo el día
+
+📅 Para reservar, vuelve y elige “Reservar”.\n\n0️⃣ Volver\n9️⃣ Inicio"
       );
     }
 
