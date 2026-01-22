@@ -14,6 +14,8 @@ const userState = {};
 const userCart = {};
 const userMeta = {};
 const userProfile = {};
+const userReservations = {};
+const userReservationDraft = {};
 
 // ================================
 // TEXTOS (FÁCILES DE EDITAR)
@@ -24,6 +26,7 @@ const MENU_PRINCIPAL_TEXT = `
 1️⃣ Cotorreo
 2️⃣ Alpadel
 3️⃣ Hablar con un asesor
+4 Reservas
 `;
 
 const PLAZA_MENU_TEXT = `
@@ -71,7 +74,7 @@ function getUserProfile(from) {
 }
 
 function isGlobalCommand(text) {
-  return ["menu", "menú", "inicio", "hola", "9", "asesor", "carrito"].includes(text);
+  return ["menu", "menú", "inicio", "hola", "9", "asesor", "carrito", "reservas"].includes(text);
 }
 
 function getNamePrompt() {
@@ -87,6 +90,89 @@ function getMenuPrincipalText(name) {
     "Bienvenido a *Grupo Cotorreo*",
     `Hola ${name}! Bienvenido a *Grupo Cotorreo*`
   );
+}
+
+function getUserReservation(from) {
+  return userReservations[from] || null;
+}
+
+function getReservationDraft(from) {
+  if (!userReservationDraft[from]) {
+    userReservationDraft[from] = {
+      location: null,
+      kindLabel: null,
+      kindExample: null,
+      type: null,
+      people: null,
+      date: null,
+      time: null,
+      phone: null,
+      origin: null
+    };
+  }
+  return userReservationDraft[from];
+}
+
+function clearReservationDraft(from) {
+  delete userReservationDraft[from];
+}
+
+function startReservation(from, location, kindLabel, kindExample, origin) {
+  const draft = getReservationDraft(from);
+  draft.location = location;
+  draft.kindLabel = kindLabel;
+  draft.kindExample = kindExample;
+  draft.type = null;
+  draft.people = null;
+  draft.date = null;
+  draft.time = null;
+  draft.phone = null;
+  draft.origin = origin;
+  return draft;
+}
+
+function getReservationSummary(reservation) {
+  let reply = `Lugar: ${reservation.location}\n`;
+  if (reservation.id) {
+    reply += `Numero: ${reservation.id}\n`;
+  }
+  reply += `Nombre: ${reservation.name || ""}\n`;
+  reply += `${reservation.kindLabel}: ${reservation.type}\n`;
+  reply += `Personas: ${reservation.people}\n`;
+  reply += `Fecha: ${reservation.date}\n`;
+  reply += `Hora: ${reservation.time}\n`;
+  reply += `Telefono: ${reservation.phone}`;
+  return reply;
+}
+
+function getReservationDetailsText(reservation) {
+  if (!reservation) {
+    return "No tienes reservas registradas.\n\n0 Volver\n9 Inicio";
+  }
+
+  let reply = "Ultima reserva\n\n";
+  reply += `${getReservationSummary(reservation)}\n\n`;
+  reply += "0 Volver\n9 Inicio";
+  return reply;
+}
+
+function getReservationExitText(from, profile) {
+  const draft = getReservationDraft(from);
+  const origin = draft.origin;
+  clearReservationDraft(from);
+
+  if (origin === "PLAZA_MENU") {
+    userState[from] = "PLAZA_MENU";
+    return PLAZA_MENU_TEXT;
+  }
+
+  if (origin === "ALPADEL_MENU") {
+    userState[from] = "ALPADEL_MENU";
+    return ALPADEL_MENU_TEXT;
+  }
+
+  userState[from] = "MENU_PRINCIPAL";
+  return getMenuPrincipalText(profile.name);
 }
 
 // ================================
@@ -355,6 +441,11 @@ app.post("/whatsapp", (req, res) => {
     return sendResponse(res, getCartText(getUserCart(from)));
   }
 
+  if (text === "reservas") {
+    userState[from] = "VIEW_RESERVATIONS";
+    return sendResponse(res, getReservationDetailsText(getUserReservation(from)));
+  }
+
   // ================================
   // MENU PRINCIPAL
   // ================================
@@ -372,6 +463,11 @@ app.post("/whatsapp", (req, res) => {
     if (text === "3") {
       userState[from] = "ASESOR";
       return sendResponse(res, ASESOR_TEXT);
+    }
+
+    if (text === "4") {
+      userState[from] = "VIEW_RESERVATIONS";
+      return sendResponse(res, getReservationDetailsText(getUserReservation(from)));
     }
 
     return sendResponse(res, getMenuPrincipalText(profile.name));
@@ -402,12 +498,17 @@ app.post("/whatsapp", (req, res) => {
     }
 
     if (text === "5") {
-      userState[from] = "PLAZA_RESERVAS";
+      userState[from] = "RESERVA_TIPO";
+      const draft = startReservation(
+        from,
+        "Plaza Cotorreo",
+        "Tipo de mesa",
+        "ej: interior, terraza",
+        "PLAZA_MENU"
+      );
       return sendResponse(
         res,
-        "Reservas Plaza Cotorreo\n" +
-          (profile.name ? `Nombre: ${profile.name}\n\n` : "\n") +
-          "0 Volver\n9 Inicio"
+        `Reserva ${draft.location}\n${draft.kindLabel} (${draft.kindExample}):`
       );
     }
 
@@ -569,6 +670,148 @@ app.post("/whatsapp", (req, res) => {
   }
 
   // ================================
+  // RESERVAS GUIADAS
+  // ================================
+  if (userState[from] === "RESERVA_TIPO") {
+    if (text === "0") {
+      return sendResponse(res, getReservationExitText(from, profile));
+    }
+
+    const draft = getReservationDraft(from);
+    if (!rawText) {
+      return sendResponse(
+        res,
+        `Reserva ${draft.location}\n${draft.kindLabel} (${draft.kindExample}):`
+      );
+    }
+
+    draft.type = rawText;
+    userState[from] = "RESERVA_PERSONAS";
+    return sendResponse(res, "Cuantas personas?");
+  }
+
+  if (userState[from] === "RESERVA_PERSONAS") {
+    if (text === "0") {
+      return sendResponse(res, getReservationExitText(from, profile));
+    }
+
+    const count = parseInt(text, 10);
+    if (Number.isNaN(count) || count < 1 || count > 20) {
+      return sendResponse(res, "Ingresa un numero valido (1-20).");
+    }
+
+    const draft = getReservationDraft(from);
+    draft.people = count;
+    userState[from] = "RESERVA_FECHA";
+    return sendResponse(res, "Fecha (ej: 15 de diciembre)");
+  }
+
+  if (userState[from] === "RESERVA_FECHA") {
+    if (text === "0") {
+      return sendResponse(res, getReservationExitText(from, profile));
+    }
+
+    if (!rawText) {
+      return sendResponse(res, "Fecha (ej: 15 de diciembre)");
+    }
+
+    const draft = getReservationDraft(from);
+    draft.date = rawText;
+    userState[from] = "RESERVA_HORA";
+    return sendResponse(res, "Hora (ej: 7:30 PM)");
+  }
+
+  if (userState[from] === "RESERVA_HORA") {
+    if (text === "0") {
+      return sendResponse(res, getReservationExitText(from, profile));
+    }
+
+    if (!rawText) {
+      return sendResponse(res, "Hora (ej: 7:30 PM)");
+    }
+
+    const draft = getReservationDraft(from);
+    draft.time = rawText;
+    userState[from] = "RESERVA_TELEFONO";
+    return sendResponse(res, "Telefono de contacto:");
+  }
+
+  if (userState[from] === "RESERVA_TELEFONO") {
+    if (text === "0") {
+      return sendResponse(res, getReservationExitText(from, profile));
+    }
+
+    if (!rawText) {
+      return sendResponse(res, "Telefono de contacto:");
+    }
+
+    const draft = getReservationDraft(from);
+    draft.phone = rawText;
+    userState[from] = "RESERVA_CONFIRMAR";
+
+    const summary = getReservationSummary({
+      ...draft,
+      name: profile.name
+    });
+
+    return sendResponse(
+      res,
+      "Confirma tu reserva:\n\n" + summary + "\n\n1 Confirmar\n2 Cancelar"
+    );
+  }
+
+  if (userState[from] === "RESERVA_CONFIRMAR") {
+    if (text === "1") {
+      const draft = getReservationDraft(from);
+      const reservationId = "RES" + Date.now().toString().slice(-6);
+      userReservations[from] = {
+        id: reservationId,
+        location: draft.location,
+        kindLabel: draft.kindLabel,
+        type: draft.type,
+        people: draft.people,
+        date: draft.date,
+        time: draft.time,
+        phone: draft.phone,
+        name: profile.name
+      };
+      clearReservationDraft(from);
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(
+        res,
+        `Reserva confirmada${profile.name ? `, ${profile.name}` : ""}.\nNumero: ${reservationId}\n\n9 Inicio`
+      );
+    }
+
+    if (text === "2" || text === "0") {
+      const exitText = getReservationExitText(from, profile);
+      return sendResponse(res, "Reserva cancelada.\n\n" + exitText);
+    }
+
+    const draft = getReservationDraft(from);
+    const summary = getReservationSummary({
+      ...draft,
+      name: profile.name
+    });
+    return sendResponse(
+      res,
+      "Confirma tu reserva:\n\n" + summary + "\n\n1 Confirmar\n2 Cancelar"
+    );
+  }
+
+  // ================================
+  // CONSULTA DE RESERVAS
+  // ================================
+  if (userState[from] === "VIEW_RESERVATIONS") {
+    if (text === "0") {
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, getMenuPrincipalText(profile.name));
+    }
+
+    return sendResponse(res, getReservationDetailsText(getUserReservation(from)));
+  }
+
+  // ================================
   // SUBMENÚS PLAZA
   // ================================
   if (
@@ -589,12 +832,17 @@ app.post("/whatsapp", (req, res) => {
     }
 
     if (text === "2") {
-      userState[from] = "ALPADEL_RESERVAS";
+      userState[from] = "RESERVA_TIPO";
+      const draft = startReservation(
+        from,
+        "Alpadel",
+        "Tipo de cancha",
+        "ej: singles, dobles",
+        "ALPADEL_MENU"
+      );
       return sendResponse(
         res,
-        "Reservar cancha\n" +
-          (profile.name ? `Nombre: ${profile.name}\n\n` : "\n") +
-          "0 Volver\n9 Inicio"
+        `Reserva ${draft.location}\n${draft.kindLabel} (${draft.kindExample}):`
       );
     }
 
