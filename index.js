@@ -18,7 +18,7 @@ const userState = {};
 const MENU_PRINCIPAL_TEXT = `
 👋 Bienvenido a *Grupo Cotorreo*
 
-1️⃣ Plaza Cotorreo
+1️⃣ Cotorreo
 2️⃣ Alpadel
 3️⃣ Hablar con un asesor
 `;
@@ -34,6 +34,7 @@ const PLAZA_MENU_TEXT = `
 6️⃣ Paquetes para fiestas
 
 0️⃣ Volver
+9️⃣ Inicio
 `;
 
 const ALPADEL_MENU_TEXT = `
@@ -46,6 +47,7 @@ const ALPADEL_MENU_TEXT = `
 5️⃣ Paquetes para fiestas
 
 0️⃣ Volver
+9️⃣ Inicio
 `;
 
 const ASESOR_TEXT = `
@@ -55,6 +57,7 @@ const ASESOR_TEXT = `
 📞 Alpadel: 7131-6051
 
 0️⃣ Volver
+9️⃣ Inicio
 `;
 
 // ================================
@@ -124,32 +127,32 @@ app.post("/whatsapp", (req, res) => {
   if (userState[from] === "PLAZA_MENU") {
     if (text === "1") {
       userState[from] = "PLAZA_MENU";
-      return sendResponse(res, "📋 Menú Plaza Cotorreo\n\n0️⃣ Volver");
+      return sendResponse(res, "Con gusto! Aquí tiene nuestro menú.\nhttps://linktr.ee/elcotorreocr\n\n0️⃣ Volver\n9️⃣ Inicio");
     }
 
     if (text === "2") {
       userState[from] = "PLAZA_PROMOCIONES";
-      return sendResponse(res, "🎉 Promociones Plaza Cotorreo\n\n0️⃣ Volver");
+      return sendResponse(res, "🎉 Promociones Plaza Cotorreo\n\n0️⃣ Volver\n9️⃣ Inicio");
     }
 
     if (text === "3") {
       userState[from] = "PLAZA_HORARIOS";
-      return sendResponse(res, "⏰ Horarios Plaza Cotorreo\n\n0️⃣ Volver");
+      return sendResponse(res, "⏰ Horarios Plaza Cotorreo\n\n0️⃣ Volver\n9️⃣ Inicio");
     }
 
     if (text === "4") {
       userState[from] = "PLAZA_UBICACION";
-      return sendResponse(res, "📍 Ubicación Plaza Cotorreo\n\n0️⃣ Volver");
+      return sendResponse(res, "📍 Ubicación Plaza Cotorreo\n\n0️⃣ Volver\n9️⃣ Inicio");
     }
 
     if (text === "5") {
       userState[from] = "PLAZA_RESERVAS";
-      return sendResponse(res, "📅 Reservas Plaza Cotorreo\n\n0️⃣ Volver");
+      return sendResponse(res, "📅 Reservas Plaza Cotorreo\n\n0️⃣ Volver\n9️⃣ Inicio");
     }
 
     if (text === "6") {
       userState[from] = "PLAZA_PAQUETES";
-      return sendResponse(res, "🎈 Paquetes para fiestas Plaza Cotorreo\n\n0️⃣ Volver");
+      return sendResponse(res, "🎈 Paquetes para fiestas Plaza Cotorreo\n\n0️⃣ Volver\n9️⃣ Inicio");
     }
 
     if (text === "0") {
@@ -177,27 +180,27 @@ app.post("/whatsapp", (req, res) => {
   if (userState[from] === "ALPADEL_MENU") {
     if (text === "1") {
       userState[from] = "ALPADEL_PRECIOS";
-      return sendResponse(res, "💰 Precios Alpadel\n\n0️⃣ Volver");
+      return sendResponse(res, "💰 Precios Alpadel\n\n0️⃣ Volver\n9️⃣ Inicio");
     }
 
     if (text === "2") {
       userState[from] = "ALPADEL_RESERVAS";
-      return sendResponse(res, "📅 Reservar cancha\n\n0️⃣ Volver");
+      return sendResponse(res, "📅 Reservar cancha\n\n0️⃣ Volver\n9️⃣ Inicio");
     }
 
     if (text === "3") {
       userState[from] = "ALPADEL_CLASES";
-      return sendResponse(res, "🎾 Clases de pádel\n\n0️⃣ Volver");
+      return sendResponse(res, "🎾 Clases de pádel\n\n0️⃣ Volver\n9️⃣ Inicio");
     }
 
     if (text === "4") {
       userState[from] = "ALPADEL_PROMOCIONES";
-      return sendResponse(res, "🎉 Promociones Alpadel\n\n0️⃣ Volver");
+      return sendResponse(res, "🎉 Promociones Alpadel\n\n0️⃣ Volver\n9️⃣ Inicio");
     }
 
     if (text === "5") {
       userState[from] = "ALPADEL_PAQUETES";
-      return sendResponse(res, "🎈 Paquetes para fiestas Alpadel\n\n0️⃣ Volver");
+      return sendResponse(res, "🎈 Paquetes para fiestas Alpadel\n\n0️⃣ Volver\n9️⃣ Inicio");
     }
 
     if (text === "0") {
