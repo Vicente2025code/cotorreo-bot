@@ -806,11 +806,6 @@ app.post("/whatsapp", (req, res) => {
   // ================================
   if (userState[from] === "CART_ACTION") {
     if (text === "1") {
-      const lastCategory = getUserMeta(from).lastCategory;
-      if (lastCategory) {
-        userState[from] = lastCategory;
-        return sendResponse(res, getCategoryText(lastCategory, getUserCart(from).length > 0));
-      }
       userState[from] = "PLAZA_MENU_CATEGORIES";
       return sendResponse(res, getPlazaCategoriesText());
     }
