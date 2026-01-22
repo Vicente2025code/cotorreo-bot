@@ -21,16 +21,18 @@ const userReservationDraft = {};
 // TEXTOS (FÁCILES DE EDITAR)
 // ================================
 const MENU_PRINCIPAL_TEXT = `
-👋 Bienvenido a *Grupo Cotorreo*
+👋 ¡Bienvenido a *Grupo Cotorreo*!
+¿Que te gustaria hacer hoy? 👇
 
-1️⃣ Cotorreo
-2️⃣ Alpadel
-3️⃣ Hablar con un asesor
-4 Reservas
+1️⃣ 🍽️ Comer en Plaza Cotorreo
+2️⃣ 🎾 Jugar padel en Alpadel
+3️⃣ 👤 Hablar con un asesor
+4️⃣ 📅 Mis reservas
 `;
 
 const PLAZA_MENU_TEXT = `
 🏢 *Plaza Cotorreo*
+¿En que te apetece hoy?
 
 1️⃣ Menú
 2️⃣ Promociones
@@ -45,6 +47,7 @@ const PLAZA_MENU_TEXT = `
 
 const ALPADEL_MENU_TEXT = `
 🎾 *Alpadel*
+¿Que te gustaria hacer?
 
 1️⃣ Precios
 2️⃣ Reservar cancha
@@ -57,7 +60,7 @@ const ALPADEL_MENU_TEXT = `
 `;
 
 const ASESOR_TEXT = `
-👤 Un asesor te atenderá pronto:
+👤 Un asesor te atendera en un momento. Si prefieres, tambien puedes llamarnos:
 
 📞 Plaza Cotorreo: 2460-5050
 📞 Alpadel: 7131-6051
@@ -78,7 +81,7 @@ function isGlobalCommand(text) {
 }
 
 function getNamePrompt() {
-  return "Hola! Para continuar, dime tu nombre.";
+  return "Hola! Para brindarte un mejor servicio, dime tu nombre.";
 }
 
 function getMenuPrincipalText(name) {
@@ -87,8 +90,8 @@ function getMenuPrincipalText(name) {
   }
 
   return MENU_PRINCIPAL_TEXT.replace(
-    "Bienvenido a *Grupo Cotorreo*",
-    `Hola ${name}! Bienvenido a *Grupo Cotorreo*`
+    "¡Bienvenido a *Grupo Cotorreo*!",
+    `Hola ${name}! ¡Bienvenido a *Grupo Cotorreo*!`
   );
 }
 
@@ -132,9 +135,9 @@ function startReservation(from, location, kindLabel, kindExample, origin) {
 }
 
 function getReservationSummary(reservation) {
-  let reply = `Lugar: ${reservation.location}\n`;
+  let reply = `Lugar elegido: ${reservation.location}\n`;
   if (reservation.id) {
-    reply += `Numero: ${reservation.id}\n`;
+    reply += `Numero de reserva: ${reservation.id}\n`;
   }
   reply += `Nombre: ${reservation.name || ""}\n`;
   reply += `${reservation.kindLabel}: ${reservation.type}\n`;
@@ -147,10 +150,10 @@ function getReservationSummary(reservation) {
 
 function getReservationDetailsText(reservation) {
   if (!reservation) {
-    return "No tienes reservas registradas.\n\n0 Volver\n9 Inicio";
+    return "Aun no tienes reservas registradas. ¿Te ayudamos a reservar?\n\n0 Volver\n9 Inicio";
   }
 
-  let reply = "Ultima reserva\n\n";
+  let reply = "Resumen de tu ultima reserva\n\n";
   reply += `${getReservationSummary(reservation)}\n\n`;
   reply += "0 Volver\n9 Inicio";
   return reply;
@@ -291,9 +294,9 @@ function formatCRC(amount) {
 }
 
 function getPlazaCategoriesText() {
-  let reply = "Con gusto! Aqui tiene nuestro menu completo:\n";
+  let reply = "Con gusto! Aqui tienes nuestro menu completo para que elijas con tranquilidad:\n";
   reply += PLAZA_MENU_LINK + "\n\n";
-  reply += "Elige una categoria:\n\n";
+  reply += "¿Que categoria se te antoja hoy?\n\n";
 
   PLAZA_MENU_CATEGORIES.forEach((category, index) => {
     reply += `${index + 1} - ${category.label}\n`;
@@ -313,14 +316,14 @@ function getCategoryText(categoryKey, hasCartItems) {
     return getPlazaCategoriesText();
   }
 
-  let reply = `Menu ${category.label}\n\n`;
+  let reply = `Menu ${category.label}\nElige tu favorito:\n\n`;
   category.items.forEach((item, index) => {
     reply += `${index + 1}. ${item.name} - ${formatCRC(item.price)}\n`;
   });
 
-  reply += "\nPara agregar, escribe el numero del platillo.\n";
+  reply += "\nPara agregar al carrito, escribe el numero del platillo.\n";
   if (hasCartItems) {
-    reply += "Escribe 'carrito' para ver tu carrito.\n";
+    reply += "Escribe 'carrito' para revisar tu carrito.\n";
   }
   reply += "0 Volver\n9 Inicio";
   return reply;
@@ -339,10 +342,10 @@ function addItemToCart(cart, item) {
 
 function getCartText(cart) {
   if (!cart.length) {
-    return "Tu carrito esta vacio.\n\n0 Volver\n9 Inicio";
+    return "Tu carrito esta vacio por ahora. ¿Quieres ver el menu?\n\n0 Volver\n9 Inicio";
   }
 
-  let reply = "Tu carrito:\n\n";
+  let reply = "Tu carrito, listo para ti:\n\n";
   let total = 0;
   cart.forEach((item, index) => {
     const subtotal = item.price * item.quantity;
@@ -351,7 +354,7 @@ function getCartText(cart) {
   });
 
   reply += `\nTotal: ${formatCRC(total)}\n\n`;
-  reply += "1 Proceder al pago\n";
+  reply += "1 Confirmar y pagar\n";
   reply += "2 Vaciar carrito\n";
   reply += "0 Volver\n9 Inicio";
   return reply;
@@ -367,7 +370,7 @@ function getCheckoutText(cart) {
     total += item.price * item.quantity;
   });
 
-  let reply = "Confirmar pedido:\n\n";
+  let reply = "¿Listo para confirmar tu pedido?\n\n";
   reply += `Total: ${formatCRC(total)}\n\n`;
   reply += "1 Confirmar pedido\n";
   reply += "2 Volver al carrito\n";
@@ -484,17 +487,26 @@ app.post("/whatsapp", (req, res) => {
 
     if (text === "2") {
       userState[from] = "PLAZA_PROMOCIONES";
-      return sendResponse(res, "🎉 Promociones Plaza Cotorreo\n\n0️⃣ Volver\n9️⃣ Inicio");
+      return sendResponse(
+        res,
+        "🎉 Promociones Plaza Cotorreo\n\nDescubre nuestras promos especiales y disfruta mas por menos.\n\n0️⃣ Volver\n9️⃣ Inicio"
+      );
     }
 
     if (text === "3") {
       userState[from] = "PLAZA_HORARIOS";
-      return sendResponse(res, "⏰ Horarios Plaza Cotorreo\n\n0️⃣ Volver\n9️⃣ Inicio");
+      return sendResponse(
+        res,
+        "⏰ Horarios Plaza Cotorreo\n\nEstamos listos para atenderte. Escribe si necesitas un horario especial.\n\n0️⃣ Volver\n9️⃣ Inicio"
+      );
     }
 
     if (text === "4") {
       userState[from] = "PLAZA_UBICACION";
-      return sendResponse(res, "📍 Ubicación Plaza Cotorreo\n\n0️⃣ Volver\n9️⃣ Inicio");
+      return sendResponse(
+        res,
+        "📍 Ubicación Plaza Cotorreo\n\nTe compartimos la ubicacion exacta cuando gustes.\n\n0️⃣ Volver\n9️⃣ Inicio"
+      );
     }
 
     if (text === "5") {
@@ -508,13 +520,16 @@ app.post("/whatsapp", (req, res) => {
       );
       return sendResponse(
         res,
-        `Reserva ${draft.location}\n${draft.kindLabel} (${draft.kindExample}):`
+        `¡Genial! Reservemos en ${draft.location}.\n${draft.kindLabel} (${draft.kindExample}):`
       );
     }
 
     if (text === "6") {
       userState[from] = "PLAZA_PAQUETES";
-      return sendResponse(res, "🎈 Paquetes para fiestas Plaza Cotorreo\n\n0️⃣ Volver\n9️⃣ Inicio");
+      return sendResponse(
+        res,
+        "🎈 Paquetes para fiestas Plaza Cotorreo\n\nCelebra con nosotros. Pregunta por opciones y precios.\n\n0️⃣ Volver\n9️⃣ Inicio"
+      );
     }
 
     if (text === "0") {
@@ -574,9 +589,9 @@ app.post("/whatsapp", (req, res) => {
       getUserMeta(from).lastCategory = category.key;
       return sendResponse(
         res,
-        "Agregado al carrito:\n" +
+        "¡Listo! Agregamos a tu carrito:\n" +
           `${item.name} - ${formatCRC(item.price)}\n\n` +
-          "1 Seguir viendo\n" +
+          "1 Seguir viendo el menu\n" +
           "2 Ver carrito\n" +
           "3 Pagar ahora\n" +
           "0 Volver\n" +
@@ -618,7 +633,7 @@ app.post("/whatsapp", (req, res) => {
 
     return sendResponse(
       res,
-      "Selecciona una opcion:\n1 Seguir viendo\n2 Ver carrito\n3 Pagar ahora\n0 Volver\n9 Inicio"
+      "¿Que deseas hacer ahora?\n1 Seguir viendo el menu\n2 Ver carrito\n3 Pagar ahora\n0 Volver\n9 Inicio"
     );
   }
 
@@ -635,7 +650,7 @@ app.post("/whatsapp", (req, res) => {
 
     if (text === "2") {
       cart.length = 0;
-      return sendResponse(res, "Carrito vaciado.\n\n0 Volver\n9 Inicio");
+      return sendResponse(res, "Listo, vaciamos tu carrito.\n\n0 Volver\n9 Inicio");
     }
 
     if (text === "0") {
@@ -657,7 +672,7 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "MENU_PRINCIPAL";
       return sendResponse(
         res,
-        `Pedido confirmado${profile.name ? `, ${profile.name}` : ""}. Te contactaremos pronto.\n\n9 Inicio`
+        `¡Pedido confirmado${profile.name ? `, ${profile.name}` : ""}! Gracias por elegirnos. En breve te contactamos para coordinar.\n\n9 Inicio`
       );
     }
 
@@ -681,13 +696,13 @@ app.post("/whatsapp", (req, res) => {
     if (!rawText) {
       return sendResponse(
         res,
-        `Reserva ${draft.location}\n${draft.kindLabel} (${draft.kindExample}):`
+        `¡Genial! Reservemos en ${draft.location}.\n${draft.kindLabel} (${draft.kindExample}):`
       );
     }
 
     draft.type = rawText;
     userState[from] = "RESERVA_PERSONAS";
-    return sendResponse(res, "Cuantas personas?");
+    return sendResponse(res, "¿Para cuantas personas es la reserva?");
   }
 
   if (userState[from] === "RESERVA_PERSONAS") {
@@ -697,13 +712,13 @@ app.post("/whatsapp", (req, res) => {
 
     const count = parseInt(text, 10);
     if (Number.isNaN(count) || count < 1 || count > 20) {
-      return sendResponse(res, "Ingresa un numero valido (1-20).");
+      return sendResponse(res, "Por favor ingresa un numero valido (1-20).");
     }
 
     const draft = getReservationDraft(from);
     draft.people = count;
     userState[from] = "RESERVA_FECHA";
-    return sendResponse(res, "Fecha (ej: 15 de diciembre)");
+    return sendResponse(res, "¿Que fecha prefieres? (ej: 15 de diciembre)");
   }
 
   if (userState[from] === "RESERVA_FECHA") {
@@ -712,13 +727,13 @@ app.post("/whatsapp", (req, res) => {
     }
 
     if (!rawText) {
-      return sendResponse(res, "Fecha (ej: 15 de diciembre)");
+      return sendResponse(res, "¿Que fecha prefieres? (ej: 15 de diciembre)");
     }
 
     const draft = getReservationDraft(from);
     draft.date = rawText;
     userState[from] = "RESERVA_HORA";
-    return sendResponse(res, "Hora (ej: 7:30 PM)");
+    return sendResponse(res, "¿A que hora? (ej: 7:30 PM)");
   }
 
   if (userState[from] === "RESERVA_HORA") {
@@ -727,13 +742,13 @@ app.post("/whatsapp", (req, res) => {
     }
 
     if (!rawText) {
-      return sendResponse(res, "Hora (ej: 7:30 PM)");
+      return sendResponse(res, "¿A que hora? (ej: 7:30 PM)");
     }
 
     const draft = getReservationDraft(from);
     draft.time = rawText;
     userState[from] = "RESERVA_TELEFONO";
-    return sendResponse(res, "Telefono de contacto:");
+    return sendResponse(res, "Telefono de contacto para confirmar:");
   }
 
   if (userState[from] === "RESERVA_TELEFONO") {
@@ -742,7 +757,7 @@ app.post("/whatsapp", (req, res) => {
     }
 
     if (!rawText) {
-      return sendResponse(res, "Telefono de contacto:");
+      return sendResponse(res, "Telefono de contacto para confirmar:");
     }
 
     const draft = getReservationDraft(from);
@@ -756,7 +771,7 @@ app.post("/whatsapp", (req, res) => {
 
     return sendResponse(
       res,
-      "Confirma tu reserva:\n\n" + summary + "\n\n1 Confirmar\n2 Cancelar"
+      "Por favor confirma tu reserva:\n\n" + summary + "\n\n1 Confirmar\n2 Cancelar"
     );
   }
 
@@ -779,13 +794,13 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "MENU_PRINCIPAL";
       return sendResponse(
         res,
-        `Reserva confirmada${profile.name ? `, ${profile.name}` : ""}.\nNumero: ${reservationId}\n\n9 Inicio`
+        `¡Reserva confirmada${profile.name ? `, ${profile.name}` : ""}! Gracias por elegirnos.\nNumero: ${reservationId}\n\n9 Inicio`
       );
     }
 
     if (text === "2" || text === "0") {
       const exitText = getReservationExitText(from, profile);
-      return sendResponse(res, "Reserva cancelada.\n\n" + exitText);
+      return sendResponse(res, "Reserva cancelada. Si deseas, podemos agendar otra.\n\n" + exitText);
     }
 
     const draft = getReservationDraft(from);
@@ -795,7 +810,7 @@ app.post("/whatsapp", (req, res) => {
     });
     return sendResponse(
       res,
-      "Confirma tu reserva:\n\n" + summary + "\n\n1 Confirmar\n2 Cancelar"
+      "Por favor confirma tu reserva:\n\n" + summary + "\n\n1 Confirmar\n2 Cancelar"
     );
   }
 
@@ -828,7 +843,10 @@ app.post("/whatsapp", (req, res) => {
   if (userState[from] === "ALPADEL_MENU") {
     if (text === "1") {
       userState[from] = "ALPADEL_PRECIOS";
-      return sendResponse(res, "💰 Precios Alpadel\n\n0️⃣ Volver\n9️⃣ Inicio");
+      return sendResponse(
+        res,
+        "💰 Precios Alpadel\n\nTenemos opciones para cada necesidad. Consultanos por la tarifa ideal.\n\n0️⃣ Volver\n9️⃣ Inicio"
+      );
     }
 
     if (text === "2") {
@@ -842,23 +860,32 @@ app.post("/whatsapp", (req, res) => {
       );
       return sendResponse(
         res,
-        `Reserva ${draft.location}\n${draft.kindLabel} (${draft.kindExample}):`
+        `¡Perfecto! Reservemos en ${draft.location}.\n${draft.kindLabel} (${draft.kindExample}):`
       );
     }
 
     if (text === "3") {
       userState[from] = "ALPADEL_CLASES";
-      return sendResponse(res, "🎾 Clases de pádel\n\n0️⃣ Volver\n9️⃣ Inicio");
+      return sendResponse(
+        res,
+        "🎾 Clases de pádel\n\nMejora tu juego con nuestros entrenadores. Pregunta por horarios.\n\n0️⃣ Volver\n9️⃣ Inicio"
+      );
     }
 
     if (text === "4") {
       userState[from] = "ALPADEL_PROMOCIONES";
-      return sendResponse(res, "🎉 Promociones Alpadel\n\n0️⃣ Volver\n9️⃣ Inicio");
+      return sendResponse(
+        res,
+        "🎉 Promociones Alpadel\n\nAprovecha nuestras promos y reserva tu cancha.\n\n0️⃣ Volver\n9️⃣ Inicio"
+      );
     }
 
     if (text === "5") {
       userState[from] = "ALPADEL_PAQUETES";
-      return sendResponse(res, "🎈 Paquetes para fiestas Alpadel\n\n0️⃣ Volver\n9️⃣ Inicio");
+      return sendResponse(
+        res,
+        "🎈 Paquetes para fiestas Alpadel\n\nArma tu evento con cancha incluida. Consultanos.\n\n0️⃣ Volver\n9️⃣ Inicio"
+      );
     }
 
     if (text === "0") {
