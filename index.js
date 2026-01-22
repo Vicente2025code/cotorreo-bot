@@ -11,6 +11,8 @@ app.use(bodyParser.urlencoded({ extended: false }));
 // ESTADO GLOBAL POR USUARIO
 // ================================
 const userState = {};
+const userCart = {};
+const userMeta = {};
 
 // ================================
 // TEXTOS (FÁCILES DE EDITAR)
@@ -61,6 +63,203 @@ const ASESOR_TEXT = `
 `;
 
 // ================================
+// MENU Y CARRITO
+// ================================
+const PLAZA_MENU_LINK = "https://linktr.ee/elcotorreocr";
+
+const PLAZA_MENU_CATEGORIES = [
+  {
+    key: "CAT_ENTRADAS",
+    label: "Entradas",
+    items: [
+      { name: "Guacamole", price: 3500 },
+      { name: "Caldos", price: 2800 },
+      { name: "Ceviche de chicharron", price: 4200 },
+      { name: "Patacones", price: 3200 },
+      { name: "Molcajete", price: 6500 }
+    ]
+  },
+  {
+    key: "CAT_TACOS",
+    label: "Tacos",
+    items: [
+      { name: "Tacos Pastor", price: 1800 },
+      { name: "Tacos Birria", price: 2200 },
+      { name: "Tacos Camaron", price: 2500 },
+      { name: "Tacos Vegetarianos", price: 1600 }
+    ]
+  },
+  {
+    key: "CAT_BURGERS",
+    label: "Hamburguesas",
+    items: [
+      { name: "Supreme", price: 5500 },
+      { name: "BBQ", price: 5000 },
+      { name: "Chicken", price: 4800 },
+      { name: "Birria", price: 6000 },
+      { name: "Parrillada", price: 7500 }
+    ]
+  },
+  {
+    key: "CAT_SUSHI",
+    label: "Sushi",
+    items: [
+      { name: "California Roll", price: 4500 },
+      { name: "Tico Roll", price: 5000 },
+      { name: "Crazy Roll", price: 5500 },
+      { name: "Teriyaki Roll", price: 4800 }
+    ]
+  },
+  {
+    key: "CAT_PIZZAS",
+    label: "Pizzas",
+    items: [
+      { name: "Jamon y queso", price: 6500 },
+      { name: "Pepperoni", price: 7000 },
+      { name: "Birria", price: 8000 },
+      { name: "Hawaiana", price: 6800 }
+    ]
+  },
+  {
+    key: "CAT_ENSALADAS",
+    label: "Ensaladas",
+    items: [
+      { name: "Cotorreo verde", price: 4200 },
+      { name: "Poke bowl", price: 5500 },
+      { name: "Pita", price: 4800 },
+      { name: "Brusheta", price: 3900 }
+    ]
+  },
+  {
+    key: "CAT_SOPAS",
+    label: "Sopas",
+    items: [
+      { name: "Ramen Tonkotsu", price: 6500 },
+      { name: "Ramen Birria", price: 7000 },
+      { name: "Sopa Azteca", price: 4500 }
+    ]
+  },
+  {
+    key: "CAT_ARROCES",
+    label: "Arroces y Pastas",
+    items: [
+      { name: "Arroz con camaron", price: 7500 },
+      { name: "Arroz con pollo", price: 6800 },
+      { name: "Pasta enchilada", price: 6200 }
+    ]
+  },
+  {
+    key: "CAT_INFANTIL",
+    label: "Menu Infantil",
+    items: [
+      { name: "Dedos de pollo", price: 3500 },
+      { name: "Dedos de pescado", price: 3800 },
+      { name: "Hamburguesa infantil", price: 3200 }
+    ]
+  }
+];
+
+function getUserCart(from) {
+  if (!userCart[from]) {
+    userCart[from] = [];
+  }
+  return userCart[from];
+}
+
+function getUserMeta(from) {
+  if (!userMeta[from]) {
+    userMeta[from] = { lastCategory: null };
+  }
+  return userMeta[from];
+}
+
+function formatCRC(amount) {
+  return "₡" + amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function getPlazaCategoriesText() {
+  let reply = "Con gusto! Aqui tiene nuestro menu completo:\n";
+  reply += PLAZA_MENU_LINK + "\n\n";
+  reply += "Elige una categoria:\n\n";
+
+  PLAZA_MENU_CATEGORIES.forEach((category, index) => {
+    reply += `${index + 1} - ${category.label}\n`;
+  });
+
+  reply += "\n0 Volver\n9 Inicio";
+  return reply;
+}
+
+function getCategoryByKey(key) {
+  return PLAZA_MENU_CATEGORIES.find((category) => category.key === key);
+}
+
+function getCategoryText(categoryKey) {
+  const category = getCategoryByKey(categoryKey);
+  if (!category) {
+    return getPlazaCategoriesText();
+  }
+
+  let reply = `Menu ${category.label}\n\n`;
+  category.items.forEach((item, index) => {
+    reply += `${index + 1}. ${item.name} - ${formatCRC(item.price)}\n`;
+  });
+
+  reply += "\nPara agregar, escribe el numero del platillo.\n";
+  reply += "0 Volver\n9 Inicio";
+  return reply;
+}
+
+function addItemToCart(cart, item) {
+  const existing = cart.find((entry) => entry.name === item.name);
+  if (existing) {
+    existing.quantity += 1;
+    return existing;
+  }
+  const entry = { name: item.name, price: item.price, quantity: 1 };
+  cart.push(entry);
+  return entry;
+}
+
+function getCartText(cart) {
+  if (!cart.length) {
+    return "Tu carrito esta vacio.\n\n0 Volver\n9 Inicio";
+  }
+
+  let reply = "Tu carrito:\n\n";
+  let total = 0;
+  cart.forEach((item, index) => {
+    const subtotal = item.price * item.quantity;
+    total += subtotal;
+    reply += `${index + 1}. ${item.name} x${item.quantity} - ${formatCRC(subtotal)}\n`;
+  });
+
+  reply += `\nTotal: ${formatCRC(total)}\n\n`;
+  reply += "1 Proceder al pago\n";
+  reply += "2 Vaciar carrito\n";
+  reply += "0 Volver\n9 Inicio";
+  return reply;
+}
+
+function getCheckoutText(cart) {
+  if (!cart.length) {
+    return getCartText(cart);
+  }
+
+  let total = 0;
+  cart.forEach((item) => {
+    total += item.price * item.quantity;
+  });
+
+  let reply = "Confirmar pedido:\n\n";
+  reply += `Total: ${formatCRC(total)}\n\n`;
+  reply += "1 Confirmar pedido\n";
+  reply += "2 Volver al carrito\n";
+  reply += "0 Volver";
+  return reply;
+}
+
+// ================================
 // FUNCIÓN ÚNICA PARA RESPONDER
 // ================================
 function sendResponse(res, message) {
@@ -85,6 +284,8 @@ app.post("/whatsapp", (req, res) => {
   if (!userState[from]) {
     userState[from] = "MENU_PRINCIPAL";
   }
+  getUserCart(from);
+  getUserMeta(from);
 
   // ================================
   // COMANDOS GLOBALES
@@ -97,6 +298,11 @@ app.post("/whatsapp", (req, res) => {
   if (text === "asesor") {
     userState[from] = "ASESOR";
     return sendResponse(res, ASESOR_TEXT);
+  }
+
+  if (text === "carrito") {
+    userState[from] = "VIEW_CART";
+    return sendResponse(res, getCartText(getUserCart(from)));
   }
 
   // ================================
@@ -126,8 +332,8 @@ app.post("/whatsapp", (req, res) => {
   // ================================
   if (userState[from] === "PLAZA_MENU") {
     if (text === "1") {
-      userState[from] = "PLAZA_MENU";
-      return sendResponse(res, "Con gusto! Aquí tiene nuestro menú.\nhttps://linktr.ee/elcotorreocr\n\n0️⃣ Volver\n9️⃣ Inicio");
+      userState[from] = "PLAZA_MENU_CATEGORIES";
+      return sendResponse(res, getPlazaCategoriesText());
     }
 
     if (text === "2") {
@@ -161,6 +367,142 @@ app.post("/whatsapp", (req, res) => {
     }
 
     return sendResponse(res, PLAZA_MENU_TEXT);
+  }
+
+  // ================================
+  // PLAZA COTORREO CATEGORIES
+  // ================================
+  if (userState[from] === "PLAZA_MENU_CATEGORIES") {
+    if (text === "0") {
+      userState[from] = "PLAZA_MENU";
+      return sendResponse(res, PLAZA_MENU_TEXT);
+    }
+
+    const choice = parseInt(text, 10);
+    if (!Number.isNaN(choice) && choice >= 1 && choice <= PLAZA_MENU_CATEGORIES.length) {
+      const categoryKey = PLAZA_MENU_CATEGORIES[choice - 1].key;
+      userState[from] = categoryKey;
+      getUserMeta(from).lastCategory = categoryKey;
+      return sendResponse(res, getCategoryText(categoryKey));
+    }
+
+    return sendResponse(res, getPlazaCategoriesText());
+  }
+
+  // ================================
+  // PLAZA COTORREO CATEGORY ITEMS
+  // ================================
+  if (userState[from].startsWith("CAT_")) {
+    if (text === "0") {
+      userState[from] = "PLAZA_MENU_CATEGORIES";
+      return sendResponse(res, getPlazaCategoriesText());
+    }
+
+    const category = getCategoryByKey(userState[from]);
+    if (!category) {
+      userState[from] = "PLAZA_MENU_CATEGORIES";
+      return sendResponse(res, getPlazaCategoriesText());
+    }
+
+    const itemNumber = parseInt(text, 10);
+    if (!Number.isNaN(itemNumber) && itemNumber >= 1 && itemNumber <= category.items.length) {
+      const cart = getUserCart(from);
+      const item = category.items[itemNumber - 1];
+      addItemToCart(cart, item);
+      userState[from] = "CART_ACTION";
+      getUserMeta(from).lastCategory = category.key;
+      return sendResponse(
+        res,
+        "Agregado al carrito:\n" +
+          `${item.name} - ${formatCRC(item.price)}\n\n` +
+          "1 Seguir viendo\n" +
+          "2 Ver carrito\n" +
+          "3 Pagar ahora\n" +
+          "0 Volver\n" +
+          "9 Inicio"
+      );
+    }
+
+    return sendResponse(res, getCategoryText(category.key));
+  }
+
+  // ================================
+  // CARRITO - ACCION DESPUES DE AGREGAR
+  // ================================
+  if (userState[from] === "CART_ACTION") {
+    if (text === "1") {
+      const lastCategory = getUserMeta(from).lastCategory;
+      if (lastCategory) {
+        userState[from] = lastCategory;
+        return sendResponse(res, getCategoryText(lastCategory));
+      }
+      userState[from] = "PLAZA_MENU_CATEGORIES";
+      return sendResponse(res, getPlazaCategoriesText());
+    }
+
+    if (text === "2") {
+      userState[from] = "VIEW_CART";
+      return sendResponse(res, getCartText(getUserCart(from)));
+    }
+
+    if (text === "3") {
+      userState[from] = "CHECKOUT";
+      return sendResponse(res, getCheckoutText(getUserCart(from)));
+    }
+
+    if (text === "0") {
+      userState[from] = "PLAZA_MENU_CATEGORIES";
+      return sendResponse(res, getPlazaCategoriesText());
+    }
+
+    return sendResponse(
+      res,
+      "Selecciona una opcion:\n1 Seguir viendo\n2 Ver carrito\n3 Pagar ahora\n0 Volver\n9 Inicio"
+    );
+  }
+
+  // ================================
+  // VER CARRITO
+  // ================================
+  if (userState[from] === "VIEW_CART") {
+    const cart = getUserCart(from);
+
+    if (text === "1") {
+      userState[from] = "CHECKOUT";
+      return sendResponse(res, getCheckoutText(cart));
+    }
+
+    if (text === "2") {
+      cart.length = 0;
+      return sendResponse(res, "Carrito vaciado.\n\n0 Volver\n9 Inicio");
+    }
+
+    if (text === "0") {
+      userState[from] = "PLAZA_MENU_CATEGORIES";
+      return sendResponse(res, getPlazaCategoriesText());
+    }
+
+    return sendResponse(res, getCartText(cart));
+  }
+
+  // ================================
+  // CHECKOUT
+  // ================================
+  if (userState[from] === "CHECKOUT") {
+    const cart = getUserCart(from);
+
+    if (text === "1") {
+      cart.length = 0;
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, "Pedido confirmado. Te contactaremos pronto.\n\n9 Inicio");
+    }
+
+    if (text === "2" || text === "0") {
+      userState[from] = "VIEW_CART";
+      return sendResponse(res, getCartText(cart));
+    }
+
+    return sendResponse(res, getCheckoutText(cart));
   }
 
   // ================================
