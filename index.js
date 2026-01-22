@@ -1,4 +1,4 @@
-// ================================
+﻿// ================================
 // DEPENDENCIAS
 // ================================
 const express = require("express");
@@ -844,17 +844,22 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "ALPADEL_PRECIOS";
       return sendResponse(
         res,
-        "💰 Precios Alpadel\n\n🕖 7am – 3pm
-• Dobles: ₡6.000
-• Singles: ₡4.000
+        `ðŸ’° Precios Alpadel
 
-🕓 4pm – 10pm
-• Dobles: ₡12.000
-• Singles: ₡6.000
+ðŸ•– 7am â€“ 3pm
+â€¢ Dobles: â‚¡6.000
+â€¢ Singles: â‚¡4.000
 
-☀️ Domingos: ₡6.000 todo el día
+ðŸ•“ 4pm â€“ 10pm
+â€¢ Dobles: â‚¡12.000
+â€¢ Singles: â‚¡6.000
 
-📅 Para reservar, vuelve y elige “Reservar”.\n\n0️⃣ Volver\n9️⃣ Inicio"
+â˜€ï¸ Domingos: â‚¡6.000 todo el dÃ­a
+
+ðŸ“… Para reservar, vuelve y elige â€œReservarâ€.
+
+0ï¸âƒ£ Volver
+9ï¸âƒ£ Inicio`
       );
     }
 
