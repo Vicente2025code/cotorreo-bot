@@ -184,6 +184,10 @@ function getReservationExitText(from, profile) {
 // MENU Y CARRITO
 // ================================
 const PLAZA_MENU_LINK = "https://linktr.ee/elcotorreocr";
+const PLAZA_MENU_MEDIA = [
+  "https://drive.google.com/uc?export=download&id=1vKBNBATTaoq_AwQ5yMv87Zs6z_i6ACcI",
+  "https://drive.google.com/uc?export=download&id=1G3qM0t2HLYP8kzLpHnn7CXROkpRWjHkj"
+];
 const PLAYTOMIC_LINK = "https://playtomic.com/clubs/alpadel-club";
 
 const PLAZA_MENU_CATEGORIES = [
@@ -302,8 +306,7 @@ function formatCRC(amount) {
 }
 
 function getPlazaCategoriesText() {
-  let reply = "¡Con gusto! 👇 Aquí tienes nuestro menú completo para que elijas con calma:\n";
-  reply += PLAZA_MENU_LINK + "\n\n";
+  let reply = "¡Con gusto! 👇 Aquí tienes nuestro menú completo para que elijas con calma:\n\n";
   reply += "¿Se te antoja algo rico hoy? 😋 Tenemos opciones para todos los gustos.\n";
   reply += "Elige tu categoría favorita y arma tu pedido en segundos:\n\n";
 
@@ -606,6 +609,21 @@ function sendResponse(res, message) {
 `);
 }
 
+function sendResponseWithMedia(res, message, mediaUrls) {
+  const mediaNodes = (mediaUrls || [])
+    .map((url) => `  <Media>${url}</Media>`)
+    .join("\n");
+  res.writeHead(200, { "Content-Type": "text/xml" });
+  res.end(`
+<Response>
+  <Message>
+    <Body>${message}</Body>
+${mediaNodes}
+  </Message>
+</Response>
+`);
+}
+
 // ================================
 // WEBHOOK WHATSAPP
 // ================================
@@ -698,7 +716,7 @@ app.post("/whatsapp", (req, res) => {
   if (userState[from] === "PLAZA_MENU") {
     if (text === "1") {
       userState[from] = "PLAZA_MENU_CATEGORIES";
-      return sendResponse(res, getPlazaCategoriesText());
+      return sendResponseWithMedia(res, getPlazaCategoriesText(), PLAZA_MENU_MEDIA);
     }
 
     if (text === "2") {
