@@ -103,6 +103,7 @@ function getReservationDraft(from) {
   if (!userReservationDraft[from]) {
     userReservationDraft[from] = {
       location: null,
+      name: null,
       kindLabel: null,
       kindExample: null,
       type: null,
@@ -123,6 +124,7 @@ function clearReservationDraft(from) {
 function startReservation(from, location, kindLabel, kindExample, origin) {
   const draft = getReservationDraft(from);
   draft.location = location;
+  draft.name = null;
   draft.kindLabel = kindLabel;
   draft.kindExample = kindExample;
   draft.type = null;
@@ -182,6 +184,7 @@ function getReservationExitText(from, profile) {
 // MENU Y CARRITO
 // ================================
 const PLAZA_MENU_LINK = "https://linktr.ee/elcotorreocr";
+const PLAYTOMIC_LINK = "https://playtomic.com/clubs/alpadel-club";
 
 const PLAZA_MENU_CATEGORIES = [
   {
@@ -723,7 +726,7 @@ app.post("/whatsapp", (req, res) => {
     }
 
     if (text === "5") {
-      userState[from] = "RESERVA_TIPO";
+      userState[from] = "RESERVA_NOMBRE";
       const draft = startReservation(
         from,
         "Plaza Cotorreo",
@@ -733,7 +736,7 @@ app.post("/whatsapp", (req, res) => {
       );
       return sendResponse(
         res,
-        `¡Genial! Reservemos en ${draft.location}.\n${draft.kindLabel} (${draft.kindExample}):`
+        `¡Genial! Reservemos en ${draft.location}.\nNombre para la reserva:`
       );
     }
 
@@ -1052,6 +1055,78 @@ app.post("/whatsapp", (req, res) => {
   }
 
   // ================================
+  // ALPADEL RESERVA OPCION
+  // ================================
+  if (userState[from] === "ALPADEL_RESERVA_OPCION") {
+    if (text === "1") {
+      userState[from] = "RESERVA_NOMBRE";
+      const draft = startReservation(
+        from,
+        "Alpadel",
+        "Tipo de cancha",
+        "ej: singles, dobles",
+        "ALPADEL_MENU"
+      );
+      return sendResponse(
+        res,
+        `¡Perfecto! Reservemos en ${draft.location}.\nNombre para la reserva:`
+      );
+    }
+
+    if (text === "2") {
+      return sendResponse(
+        res,
+        `Reserva en Playtomic aquí:\n${PLAYTOMIC_LINK}\n\n` +
+          "Si quieres reservar con nosotros, responde 1.\n\n" +
+          "9️⃣ Volver al menú anterior\n" +
+          "0️⃣ Volver al menú principal"
+      );
+    }
+
+    if (text === "9") {
+      userState[from] = "ALPADEL_MENU";
+      return sendResponse(res, ALPADEL_MENU_TEXT);
+    }
+
+    if (text === "0") {
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, getMenuPrincipalText(profile.name));
+    }
+
+    return sendResponse(
+      res,
+      "¿Cómo quieres reservar?\n1 ✅ Reservar con nosotros\n2 🌐 Reservar por Playtomic\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
+    );
+  }
+
+  // ================================
+  // RESERVA NOMBRE
+  // ================================
+  if (userState[from] === "RESERVA_NOMBRE") {
+    if (text === "9") {
+      return sendResponse(res, getReservationExitText(from, profile));
+    }
+
+    if (text === "0") {
+      clearReservationDraft(from);
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, getMenuPrincipalText(profile.name));
+    }
+
+    if (!rawText) {
+      return sendResponse(res, "Nombre para la reserva:");
+    }
+
+    const draft = getReservationDraft(from);
+    draft.name = rawText;
+    userState[from] = "RESERVA_TIPO";
+    return sendResponse(
+      res,
+      `¡Genial! Reservemos en ${draft.location}.\n${draft.kindLabel} (${draft.kindExample}):`
+    );
+  }
+
+  // ================================
   // RESERVAS GUIADAS
   // ================================
   if (userState[from] === "RESERVA_TIPO") {
@@ -1163,7 +1238,7 @@ app.post("/whatsapp", (req, res) => {
 
     const summary = getReservationSummary({
       ...draft,
-      name: profile.name
+      name: draft.name
     });
 
     return sendResponse(
@@ -1175,6 +1250,7 @@ app.post("/whatsapp", (req, res) => {
   if (userState[from] === "RESERVA_CONFIRMAR") {
     if (text === "1") {
       const draft = getReservationDraft(from);
+      const reservationName = draft.name;
       const reservationId = "RES" + Date.now().toString().slice(-6);
       userReservations[from] = {
         id: reservationId,
@@ -1185,13 +1261,13 @@ app.post("/whatsapp", (req, res) => {
         date: draft.date,
         time: draft.time,
         phone: draft.phone,
-        name: profile.name
+        name: draft.name
       };
       clearReservationDraft(from);
       userState[from] = "MENU_PRINCIPAL";
       return sendResponse(
         res,
-        `¡Reserva confirmada${profile.name ? `, ${profile.name}` : ""}! 🎉\nGracias por elegirnos.\nNúmero: ${reservationId}\n\n9 Volver al menú anterior\n0 Volver al menú principal`
+        `¡Reserva confirmada${reservationName ? `, ${reservationName}` : ""}! 🎉\nGracias por elegirnos.\nNúmero: ${reservationId}\n\n9 Volver al menú anterior\n0 Volver al menú principal`
       );
     }
 
@@ -1209,7 +1285,7 @@ app.post("/whatsapp", (req, res) => {
     const draft = getReservationDraft(from);
     const summary = getReservationSummary({
       ...draft,
-      name: profile.name
+      name: draft.name
     });
     return sendResponse(
       res,
@@ -1273,17 +1349,14 @@ app.post("/whatsapp", (req, res) => {
     }
 
     if (text === "2") {
-      userState[from] = "RESERVA_TIPO";
-      const draft = startReservation(
-        from,
-        "Alpadel",
-        "Tipo de cancha",
-        "ej: singles, dobles",
-        "ALPADEL_MENU"
-      );
+      userState[from] = "ALPADEL_RESERVA_OPCION";
       return sendResponse(
         res,
-        `¡Perfecto! Reservemos en ${draft.location}.\n${draft.kindLabel} (${draft.kindExample}):`
+        "¿Cómo quieres reservar? 🎾\n\n" +
+          "1 ✅ Reservar con nosotros\n" +
+          "2 🌐 Reservar por Playtomic\n\n" +
+          "9️⃣ Volver al menú anterior\n" +
+          "0️⃣ Volver al menú principal"
       );
     }
 
