@@ -284,7 +284,12 @@ function getUserCart(from) {
 
 function getUserMeta(from) {
   if (!userMeta[from]) {
-    userMeta[from] = { lastCategory: null };
+    userMeta[from] = {
+      lastCategory: null,
+      orderDelivery: null,
+      orderPayment: null,
+      orderFlowOrigin: null
+    };
   }
   return userMeta[from];
 }
@@ -557,7 +562,7 @@ function getCartText(cart) {
   return reply;
 }
 
-function getCheckoutText(cart) {
+function getCheckoutText(from, cart) {
   if (!cart.length) {
     return getCartText(cart);
   }
@@ -570,10 +575,14 @@ function getCheckoutText(cart) {
     summaryLines.push(`✅ ${item.name} x${item.quantity} - ${formatCRC(subtotal)}`);
   });
 
+  const meta = getUserMeta(from);
+  const delivery = meta?.orderDelivery ? `\n🚚 Entrega: ${meta.orderDelivery}` : "";
+  const payment = meta?.orderPayment ? `\n💰 Pago: ${meta.orderPayment}` : "";
+
   let reply = "¿Listo para confirmar tu pedido? 🙌\n\n";
   reply += "🧾 Detalle de tu pedido:\n";
   reply += summaryLines.join("\n") + "\n\n";
-  reply += `💳 Total: ${formatCRC(total)}\n`;
+  reply += `💳 Total: ${formatCRC(total)}${delivery}${payment}\n`;
   reply += "⚠️ El costo mencionado no incluye Express y empaque.\n\n";
   reply += "1 ✅ Confirmar pedido\n";
   reply += "2 🛒 Volver al carrito\n";
@@ -848,7 +857,15 @@ app.post("/whatsapp", (req, res) => {
 
     if (text === "3") {
       userState[from] = "CHECKOUT";
-      return sendResponse(res, getCheckoutText(getUserCart(from)));
+      const meta = getUserMeta(from);
+      meta.orderDelivery = null;
+      meta.orderPayment = null;
+      meta.orderFlowOrigin = "CART_ACTION";
+      userState[from] = "ORDER_DELIVERY";
+      return sendResponse(
+        res,
+        "¿Como deseas recibir tu pedido?\n1 🚚 Express\n2 🏪 Recoger en restaurante\n\n9 Volver al menú anterior\n0 Volver al menú principal"
+      );
     }
 
     if (text === "9") {
@@ -874,8 +891,15 @@ app.post("/whatsapp", (req, res) => {
     const cart = getUserCart(from);
 
     if (text === "1") {
-      userState[from] = "CHECKOUT";
-      return sendResponse(res, getCheckoutText(cart));
+      const meta = getUserMeta(from);
+      meta.orderDelivery = null;
+      meta.orderPayment = null;
+      meta.orderFlowOrigin = "VIEW_CART";
+      userState[from] = "ORDER_DELIVERY";
+      return sendResponse(
+        res,
+        "¿Como deseas recibir tu pedido?\n1 🚚 Express\n2 🏪 Recoger en restaurante\n\n9 Volver al menú anterior\n0 Volver al menú principal"
+      );
     }
 
     if (text === "2") {
@@ -897,6 +921,90 @@ app.post("/whatsapp", (req, res) => {
   }
 
   // ================================
+  // ENTREGA Y PAGO
+  // ================================
+  if (userState[from] === "ORDER_DELIVERY") {
+    if (text === "9") {
+      const origin = getUserMeta(from).orderFlowOrigin;
+      if (origin === "CART_ACTION") {
+        userState[from] = "CART_ACTION";
+        return sendResponse(
+          res,
+          "¿Qué deseas hacer ahora?\n1 Seguir viendo el menú\n2 Ver carrito\n3 Pagar ahora\n9 Volver al menú anterior\n0 Volver al menú principal"
+        );
+      }
+      userState[from] = "VIEW_CART";
+      return sendResponse(res, getCartText(getUserCart(from)));
+    }
+
+    if (text === "0") {
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, getMenuPrincipalText(profile.name));
+    }
+
+    if (text === "1" || text === "express") {
+      getUserMeta(from).orderDelivery = "Express";
+      userState[from] = "ORDER_PAYMENT";
+      return sendResponse(
+        res,
+        "¿Metodo de pago?\n1 💵 Efectivo\n2 💳 Tarjeta\n3 📲 SINPE\n\n9 Volver al menú anterior\n0 Volver al menú principal"
+      );
+    }
+
+    if (text === "2" || text === "recoger" || text === "retiro") {
+      getUserMeta(from).orderDelivery = "Recoger en restaurante";
+      userState[from] = "ORDER_PAYMENT";
+      return sendResponse(
+        res,
+        "¿Metodo de pago?\n1 💵 Efectivo\n2 💳 Tarjeta\n3 📲 SINPE\n\n9 Volver al menú anterior\n0 Volver al menú principal"
+      );
+    }
+
+    return sendResponse(
+      res,
+      "Por favor elige una opcion:\n1 🚚 Express\n2 🏪 Recoger en restaurante\n\n9 Volver al menú anterior\n0 Volver al menú principal"
+    );
+  }
+
+  if (userState[from] === "ORDER_PAYMENT") {
+    if (text === "9") {
+      userState[from] = "ORDER_DELIVERY";
+      return sendResponse(
+        res,
+        "¿Como deseas recibir tu pedido?\n1 🚚 Express\n2 🏪 Recoger en restaurante\n\n9 Volver al menú anterior\n0 Volver al menú principal"
+      );
+    }
+
+    if (text === "0") {
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, getMenuPrincipalText(profile.name));
+    }
+
+    if (text === "1" || text === "efectivo") {
+      getUserMeta(from).orderPayment = "Efectivo";
+      userState[from] = "CHECKOUT";
+      return sendResponse(res, getCheckoutText(from, getUserCart(from)));
+    }
+
+    if (text === "2" || text === "tarjeta") {
+      getUserMeta(from).orderPayment = "Tarjeta";
+      userState[from] = "CHECKOUT";
+      return sendResponse(res, getCheckoutText(from, getUserCart(from)));
+    }
+
+    if (text === "3" || text === "sinpe") {
+      getUserMeta(from).orderPayment = "SINPE";
+      userState[from] = "CHECKOUT";
+      return sendResponse(res, getCheckoutText(from, getUserCart(from)));
+    }
+
+    return sendResponse(
+      res,
+      "Por favor elige una opcion:\n1 💵 Efectivo\n2 💳 Tarjeta\n3 📲 SINPE\n\n9 Volver al menú anterior\n0 Volver al menú principal"
+    );
+  }
+
+  // ================================
   // CHECKOUT
   // ================================
   if (userState[from] === "CHECKOUT") {
@@ -908,8 +1016,11 @@ app.post("/whatsapp", (req, res) => {
         return `✅ ${index + 1}. ${item.name} x${item.quantity} - ${formatCRC(subtotal)}`;
       });
       const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const meta = getUserMeta(from);
+      const delivery = meta?.orderDelivery ? `\n🚚 Entrega: ${meta.orderDelivery}` : "";
+      const payment = meta?.orderPayment ? `\n💰 Pago: ${meta.orderPayment}` : "";
       const summaryText = summaryLines.length
-        ? `\n🧾 Detalle de tu pedido:\n${summaryLines.join("\n")}\n\n💳 Total: ${formatCRC(total)}\n`
+        ? `\n🧾 Detalle de tu pedido:\n${summaryLines.join("\n")}\n\n💳 Total: ${formatCRC(total)}${delivery}${payment}\n`
         : "";
       cart.length = 0;
       userState[from] = "MENU_PRINCIPAL";
@@ -919,9 +1030,17 @@ app.post("/whatsapp", (req, res) => {
       );
     }
 
-    if (text === "2" || text === "9") {
+    if (text === "2") {
       userState[from] = "VIEW_CART";
       return sendResponse(res, getCartText(cart));
+    }
+
+    if (text === "9") {
+      userState[from] = "ORDER_PAYMENT";
+      return sendResponse(
+        res,
+        "¿Metodo de pago?\n1 💵 Efectivo\n2 💳 Tarjeta\n3 📲 SINPE\n\n9 Volver al menú anterior\n0 Volver al menú principal"
+      );
     }
 
     if (text === "0") {
@@ -929,7 +1048,7 @@ app.post("/whatsapp", (req, res) => {
       return sendResponse(res, getMenuPrincipalText(profile.name));
     }
 
-    return sendResponse(res, getCheckoutText(cart));
+    return sendResponse(res, getCheckoutText(from, cart));
   }
 
   // ================================
