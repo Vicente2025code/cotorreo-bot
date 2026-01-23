@@ -610,16 +610,22 @@ function sendResponse(res, message) {
 }
 
 function sendResponseWithMedia(res, message, mediaUrls) {
-  const mediaNodes = (mediaUrls || [])
-    .map((url) => `  <Media>${url}</Media>`)
+  const mediaMessages = (mediaUrls || [])
+    .filter((url) => url)
+    .map(
+      (url) =>
+        `  <Message>
+    <Media>${url}</Media>
+  </Message>`
+    )
     .join("\n");
   res.writeHead(200, { "Content-Type": "text/xml" });
   res.end(`
 <Response>
   <Message>
     <Body>${message}</Body>
-${mediaNodes}
   </Message>
+${mediaMessages}
 </Response>
 `);
 }
