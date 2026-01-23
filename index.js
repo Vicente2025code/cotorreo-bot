@@ -549,7 +549,8 @@ function getCartText(cart) {
     reply += `${index + 1}. ${item.name} x${item.quantity} - ${formatCRC(subtotal)}\n`;
   });
 
-  reply += `\nTotal: ${formatCRC(total)}\n\n`;
+  reply += `\nTotal: ${formatCRC(total)}\n`;
+  reply += "⚠️ El costo mencionado no incluye Express y empaque.\n\n";
   reply += "1 ✅ Confirmar y pagar\n";
   reply += "2 🧹 Vaciar carrito\n";
   reply += "9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal";
@@ -572,7 +573,8 @@ function getCheckoutText(cart) {
   let reply = "¿Listo para confirmar tu pedido? 🙌\n\n";
   reply += "🧾 Detalle de tu pedido:\n";
   reply += summaryLines.join("\n") + "\n\n";
-  reply += `💳 Total: ${formatCRC(total)}\n\n`;
+  reply += `💳 Total: ${formatCRC(total)}\n`;
+  reply += "⚠️ El costo mencionado no incluye Express y empaque.\n\n";
   reply += "1 ✅ Confirmar pedido\n";
   reply += "2 🛒 Volver al carrito\n";
   reply += "9 Volver al menú anterior\n";
@@ -818,6 +820,7 @@ app.post("/whatsapp", (req, res) => {
         res,
         "¡Listo! Agregamos a tu carrito:\n" +
           `${item.name} - ${formatCRC(item.price)}\n\n` +
+          "⚠️ El costo mencionado no incluye Express y empaque.\n\n" +
           "1 Seguir viendo el menú\n" +
           "2 Ver carrito\n" +
           "3 Pagar ahora\n" +
