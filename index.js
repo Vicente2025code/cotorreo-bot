@@ -40,8 +40,8 @@ const PLAZA_MENU_TEXT = `
 5️⃣ 📅 Reservas
 6️⃣ 🎈 Paquetes para fiestas
 
-0️⃣ Volver
-9️⃣ Inicio
+9️⃣ Volver al menú anterior
+0️⃣ Volver al menú principal
 `;
 
 const ALPADEL_MENU_TEXT = `
@@ -54,8 +54,8 @@ const ALPADEL_MENU_TEXT = `
 4️⃣ 🎉 Promociones
 5️⃣ 🎈 Paquetes para fiestas
 
-0️⃣ Volver
-9️⃣ Inicio
+9️⃣ Volver al menú anterior
+0️⃣ Volver al menú principal
 `;
 
 const ASESOR_TEXT = `
@@ -65,8 +65,8 @@ Si prefieres, también puedes llamarnos:
 📞 Plaza Cotorreo: 2460-5050
 📞 Alpadel: 7131-6051
 
-0️⃣ Volver
-9️⃣ Inicio
+9️⃣ Volver al menú anterior
+0️⃣ Volver al menú principal
 `;
 
 function getUserProfile(from) {
@@ -77,7 +77,7 @@ function getUserProfile(from) {
 }
 
 function isGlobalCommand(text) {
-  return ["menu", "menú", "inicio", "hola", "9", "asesor", "carrito", "reservas"].includes(text);
+  return ["menu", "menú", "inicio", "hola", "0", "9", "asesor", "carrito", "reservas"].includes(text);
 }
 
 function getNamePrompt() {
@@ -150,12 +150,12 @@ function getReservationSummary(reservation) {
 
 function getReservationDetailsText(reservation) {
   if (!reservation) {
-    return "Aún no tienes reservas registradas. ¿Te ayudamos a reservar? ✨\n\n0️⃣ Volver\n9️⃣ Inicio";
+    return "Aún no tienes reservas registradas. ¿Te ayudamos a reservar? ✨\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal";
   }
 
   let reply = "Resumen de tu última reserva 📌\n\n";
   reply += `${getReservationSummary(reservation)}\n\n`;
-  reply += "0️⃣ Volver\n9️⃣ Inicio";
+  reply += "9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal";
   return reply;
 }
 
@@ -300,7 +300,9 @@ function getPlazaCategoriesText() {
   reply += "Elige tu categoría favorita y arma tu pedido en segundos:\n\n";
 
   PLAZA_MENU_CATEGORIES.forEach((category, index) => {
-    const emojiNumber = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"][index] || `${index + 1}`;
+    const emojiNumber = category.label === "Menú Infantil"
+      ? "🔟"
+      : (["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣"][index] || `${index + 1}`);
     const emojiByLabel = {
       Entradas: "🥑",
       Tacos: "🌮",
@@ -316,7 +318,7 @@ function getPlazaCategoriesText() {
     reply += `${emojiNumber} ${emoji} ${category.label}\n`;
   });
 
-  reply += "\n0️⃣ Volver\n9️⃣ Inicio";
+  reply += "\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal";
   return reply;
 }
 
@@ -345,8 +347,8 @@ function getCategoryText(categoryKey, hasCartItems) {
       `5️⃣ Molcajete — ${prices.Molcajete} (nivel pro 😏)\n\n` +
       "🛒 Para mandarlo directo al carrito, escribe el número\n" +
       "(no muerde, lo prometo)\n\n" +
-      "0️⃣ Volver\n" +
-      "9️⃣ Inicio"
+      "9️⃣ Volver al menú anterior\n" +
+      "0️⃣ Volver al menú principal"
     );
   }
 
@@ -365,8 +367,8 @@ function getCategoryText(categoryKey, hasCartItems) {
       `4️⃣ Tacos Vegetarianos — ${prices["Tacos Vegetarianos"]} 🌱\n\n` +
       "👉 *Para agregar al carrito*, escribe el número del taco\n" +
       "🛒 (tranquilo, después puedes pedir más 😉)\n\n" +
-      "0️⃣ Volver\n" +
-      "9️⃣ Inicio"
+      "9️⃣ Volver al menú anterior\n" +
+      "0️⃣ Volver al menú principal"
     );
   }
 
@@ -386,8 +388,8 @@ function getCategoryText(categoryKey, hasCartItems) {
       `5️⃣ Parrillada — ${prices.Parrillada} 🥩\n\n` +
       "👉 Para agregar al carrito, escribe el número\n" +
       "🛒 (si quieres combo, dímelo y te ayudamos)\n\n" +
-      "0️⃣ Volver\n" +
-      "9️⃣ Inicio"
+      "9️⃣ Volver al menú anterior\n" +
+      "0️⃣ Volver al menú principal"
     );
   }
 
@@ -406,8 +408,8 @@ function getCategoryText(categoryKey, hasCartItems) {
       `4️⃣ Teriyaki Roll — ${prices["Teriyaki Roll"]} 🍱\n\n` +
       "👉 Para agregar al carrito, escribe el número\n" +
       "🛒 (si quieres recomendación, dímelo 😉)\n\n" +
-      "0️⃣ Volver\n" +
-      "9️⃣ Inicio"
+      "9️⃣ Volver al menú anterior\n" +
+      "0️⃣ Volver al menú principal"
     );
   }
 
@@ -426,8 +428,8 @@ function getCategoryText(categoryKey, hasCartItems) {
       `4️⃣ Hawaiana — ${prices.Hawaiana} 🍍\n\n` +
       "👉 Para agregar al carrito, escribe el número\n" +
       "🛒 (si quieres extra queso, dímelo 😉)\n\n" +
-      "0️⃣ Volver\n" +
-      "9️⃣ Inicio"
+      "9️⃣ Volver al menú anterior\n" +
+      "0️⃣ Volver al menú principal"
     );
   }
 
@@ -446,8 +448,8 @@ function getCategoryText(categoryKey, hasCartItems) {
       `4️⃣ Bruschetta — ${prices.Bruschetta} 🍅\n\n` +
       "👉 Para agregar al carrito, escribe el número\n" +
       "🛒 (si quieres algo más ligero o más completo, te ayudo)\n\n" +
-      "0️⃣ Volver\n" +
-      "9️⃣ Inicio"
+      "9️⃣ Volver al menú anterior\n" +
+      "0️⃣ Volver al menú principal"
     );
   }
 
@@ -465,8 +467,8 @@ function getCategoryText(categoryKey, hasCartItems) {
       `3️⃣ Sopa Azteca — ${prices["Sopa Azteca"]} 🌶️\n\n` +
       "👉 Para agregar al carrito, escribe el número\n" +
       "🛒 (si quieres algo más suave o más picante, dime)\n\n" +
-      "0️⃣ Volver\n" +
-      "9️⃣ Inicio"
+      "9️⃣ Volver al menú anterior\n" +
+      "0️⃣ Volver al menú principal"
     );
   }
 
@@ -484,8 +486,8 @@ function getCategoryText(categoryKey, hasCartItems) {
       `3️⃣ Pasta enchilada — ${prices["Pasta enchilada"]} 🌶️\n\n` +
       "👉 Para agregar al carrito, escribe el número\n" +
       "🛒 (si quieres algo más suave o más picante, te ayudo)\n\n" +
-      "0️⃣ Volver\n" +
-      "9️⃣ Inicio"
+      "9️⃣ Volver al menú anterior\n" +
+      "0️⃣ Volver al menú principal"
     );
   }
 
@@ -503,8 +505,8 @@ if (category.label === "Menú Infantil") {
       `3️⃣ Hamburguesa infantil — ${prices["Hamburguesa infantil"]} 🍔\n\n` +
       "👉 Para agregar al carrito, escribe el número\n" +
       "🛒 (si quieres bebida para niños, dímelo y te ayudo)\n\n" +
-      "0️⃣ Volver\n" +
-      "9️⃣ Inicio"
+      "9️⃣ Volver al menú anterior\n" +
+      "0️⃣ Volver al menú principal"
     );
   }
 
@@ -519,7 +521,7 @@ if (category.label === "Menú Infantil") {
   if (hasCartItems) {
     reply += "🛒 Escribe 'carrito' para revisar tu carrito.\n";
   }
-  reply += "0️⃣ Volver\n9️⃣ Inicio";
+  reply += "9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal";
   return reply;
 }
 
@@ -536,7 +538,7 @@ function addItemToCart(cart, item) {
 
 function getCartText(cart) {
   if (!cart.length) {
-    return "Tu carrito está vacío por ahora. ¿Quieres ver el menú? 😋\n\n0️⃣ Volver\n9️⃣ Inicio";
+    return "Tu carrito está vacío por ahora. ¿Quieres ver el menú? 😋\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal";
   }
 
   let reply = "🛒 Tu carrito, listo para ti:\n\n";
@@ -550,7 +552,7 @@ function getCartText(cart) {
   reply += `\nTotal: ${formatCRC(total)}\n\n`;
   reply += "1 ✅ Confirmar y pagar\n";
   reply += "2 🧹 Vaciar carrito\n";
-  reply += "0️⃣ Volver\n9️⃣ Inicio";
+  reply += "9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal";
   return reply;
 }
 
@@ -573,7 +575,8 @@ function getCheckoutText(cart) {
   reply += `💳 Total: ${formatCRC(total)}\n\n`;
   reply += "1 ✅ Confirmar pedido\n";
   reply += "2 🛒 Volver al carrito\n";
-  reply += "0️⃣ Volver";
+  reply += "9 Volver al menú anterior\n";
+  reply += "0 Volver al menú principal";
   return reply;
 }
 
@@ -628,7 +631,7 @@ app.post("/whatsapp", (req, res) => {
   // ================================
   // COMANDOS GLOBALES
   // ================================
-  if (["menu", "menú", "inicio", "hola", "9"].includes(text)) {
+  if (["menu", "menú", "inicio", "hola", "0"].includes(text)) {
     userState[from] = "MENU_PRINCIPAL";
     return sendResponse(res, getMenuPrincipalText(profile.name));
   }
@@ -688,7 +691,7 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "PLAZA_PROMOCIONES";
       return sendResponse(
         res,
-        "🎉 Promociones Plaza Cotorreo\n\nAprovecha nuestras promos especiales y disfruta más por menos. 😋\n\n0️⃣ Volver\n9️⃣ Inicio"
+        "🎉 Promociones Plaza Cotorreo\n\nAprovecha nuestras promos especiales y disfruta más por menos. 😋\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
       );
     }
 
@@ -696,7 +699,7 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "PLAZA_HORARIOS";
       return sendResponse(
         res,
-        "⏰ Horarios Plaza Cotorreo\n\nEstamos listos para atenderte. Si necesitas un horario especial, escríbenos. 😊\n\n0️⃣ Volver\n9️⃣ Inicio"
+        "⏰ Horarios Plaza Cotorreo\n\nEstamos listos para atenderte. Si necesitas un horario especial, escríbenos. 😊\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
       );
     }
 
@@ -704,7 +707,7 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "PLAZA_UBICACION";
       return sendResponse(
         res,
-        "📍 Ubicación Plaza Cotorreo\n\nTe compartimos la ubicación exacta: https://maps.app.goo.gl/9GcpyAffmQFQU61u9\n¡Te esperamos! 🙌\n\n0️⃣ Volver\n9️⃣ Inicio"
+        "📍 Ubicación Plaza Cotorreo\n\nTe compartimos la ubicación exacta: https://maps.app.goo.gl/9GcpyAffmQFQU61u9\n¡Te esperamos! 🙌\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
       );
     }
 
@@ -727,8 +730,13 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "PLAZA_PAQUETES";
       return sendResponse(
         res,
-        "🎈 Paquetes para fiestas Plaza Cotorreo\n\nCelebra con nosotros. Pregunta por opciones y precios. 🎉\n\n0️⃣ Volver\n9️⃣ Inicio"
+        "🎈 Paquetes para fiestas Plaza Cotorreo\n\nCelebra con nosotros. Pregunta por opciones y precios. 🎉\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
       );
+    }
+
+    if (text === "9") {
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, getMenuPrincipalText(profile.name));
     }
 
     if (text === "0") {
@@ -743,13 +751,28 @@ app.post("/whatsapp", (req, res) => {
   // PLAZA COTORREO CATEGORIES
   // ================================
   if (userState[from] === "PLAZA_MENU_CATEGORIES") {
-    if (text === "0") {
+    if (text === "9") {
       userState[from] = "PLAZA_MENU";
       return sendResponse(res, PLAZA_MENU_TEXT);
     }
 
+    if (text === "0") {
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, getMenuPrincipalText(profile.name));
+    }
+
     const choice = parseInt(text, 10);
-    if (!Number.isNaN(choice) && choice >= 1 && choice <= PLAZA_MENU_CATEGORIES.length) {
+    if (choice === 10) {
+      const categoryKey = PLAZA_MENU_CATEGORIES.find((category) => category.label === "Menú Infantil")?.key;
+      if (!categoryKey) {
+        return sendResponse(res, getPlazaCategoriesText());
+      }
+      userState[from] = categoryKey;
+      getUserMeta(from).lastCategory = categoryKey;
+      return sendResponse(res, getCategoryText(categoryKey, getUserCart(from).length > 0));
+    }
+
+    if (!Number.isNaN(choice) && choice >= 1 && choice <= 8) {
       const categoryKey = PLAZA_MENU_CATEGORIES[choice - 1].key;
       userState[from] = categoryKey;
       getUserMeta(from).lastCategory = categoryKey;
@@ -768,9 +791,14 @@ app.post("/whatsapp", (req, res) => {
       return sendResponse(res, getCartText(getUserCart(from)));
     }
 
-    if (text === "0") {
+    if (text === "9") {
       userState[from] = "PLAZA_MENU_CATEGORIES";
       return sendResponse(res, getPlazaCategoriesText());
+    }
+
+    if (text === "0") {
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, getMenuPrincipalText(profile.name));
     }
 
     const category = getCategoryByKey(userState[from]);
@@ -793,8 +821,8 @@ app.post("/whatsapp", (req, res) => {
           "1 Seguir viendo el menú\n" +
           "2 Ver carrito\n" +
           "3 Pagar ahora\n" +
-          "0 Volver\n" +
-          "9 Inicio"
+          "9 Volver al menú anterior\n" +
+          "0 Volver al menú principal"
       );
     }
 
@@ -820,14 +848,19 @@ app.post("/whatsapp", (req, res) => {
       return sendResponse(res, getCheckoutText(getUserCart(from)));
     }
 
-    if (text === "0") {
+    if (text === "9") {
       userState[from] = "PLAZA_MENU_CATEGORIES";
       return sendResponse(res, getPlazaCategoriesText());
     }
 
+    if (text === "0") {
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, getMenuPrincipalText(profile.name));
+    }
+
     return sendResponse(
       res,
-      "¿Qué deseas hacer ahora?\n1 Seguir viendo el menú\n2 Ver carrito\n3 Pagar ahora\n0 Volver\n9 Inicio"
+      "¿Qué deseas hacer ahora?\n1 Seguir viendo el menú\n2 Ver carrito\n3 Pagar ahora\n9 Volver al menú anterior\n0 Volver al menú principal"
     );
   }
 
@@ -844,12 +877,17 @@ app.post("/whatsapp", (req, res) => {
 
     if (text === "2") {
       cart.length = 0;
-      return sendResponse(res, "Listo, tu carrito quedó en cero. ¿Te muestro el menú? 😋\n\n0️⃣ Volver\n9️⃣ Inicio");
+      return sendResponse(res, "Listo, tu carrito quedó en cero. ¿Te muestro el menú? 😋\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal");
+    }
+
+    if (text === "9") {
+      userState[from] = "PLAZA_MENU_CATEGORIES";
+      return sendResponse(res, getPlazaCategoriesText());
     }
 
     if (text === "0") {
-      userState[from] = "PLAZA_MENU_CATEGORIES";
-      return sendResponse(res, getPlazaCategoriesText());
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, getMenuPrincipalText(profile.name));
     }
 
     return sendResponse(res, getCartText(cart));
@@ -874,13 +912,18 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "MENU_PRINCIPAL";
       return sendResponse(
         res,
-        `¡Pedido confirmado${profile.name ? `, ${profile.name}` : ""}! 🙌${summaryText}\nEl costo mencionado no incluye Express y empaque.\nGracias por elegirnos. En breve te contactamos para coordinar.\n\n9️⃣ Inicio`
+        `¡Pedido confirmado${profile.name ? `, ${profile.name}` : ""}! 🙌${summaryText}\nEl costo mencionado no incluye Express y empaque.\nGracias por elegirnos. En breve te contactamos para coordinar.\n\n9 Volver al menú anterior\n0 Volver al menú principal`
       );
     }
 
-    if (text === "2" || text === "0") {
+    if (text === "2" || text === "9") {
       userState[from] = "VIEW_CART";
       return sendResponse(res, getCartText(cart));
+    }
+
+    if (text === "0") {
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, getMenuPrincipalText(profile.name));
     }
 
     return sendResponse(res, getCheckoutText(cart));
@@ -890,8 +933,14 @@ app.post("/whatsapp", (req, res) => {
   // RESERVAS GUIADAS
   // ================================
   if (userState[from] === "RESERVA_TIPO") {
-    if (text === "0") {
+    if (text === "9") {
       return sendResponse(res, getReservationExitText(from, profile));
+    }
+
+    if (text === "0") {
+      clearReservationDraft(from);
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, getMenuPrincipalText(profile.name));
     }
 
     const draft = getReservationDraft(from);
@@ -908,8 +957,14 @@ app.post("/whatsapp", (req, res) => {
   }
 
   if (userState[from] === "RESERVA_PERSONAS") {
-    if (text === "0") {
+    if (text === "9") {
       return sendResponse(res, getReservationExitText(from, profile));
+    }
+
+    if (text === "0") {
+      clearReservationDraft(from);
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, getMenuPrincipalText(profile.name));
     }
 
     const count = parseInt(text, 10);
@@ -924,8 +979,14 @@ app.post("/whatsapp", (req, res) => {
   }
 
   if (userState[from] === "RESERVA_FECHA") {
-    if (text === "0") {
+    if (text === "9") {
       return sendResponse(res, getReservationExitText(from, profile));
+    }
+
+    if (text === "0") {
+      clearReservationDraft(from);
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, getMenuPrincipalText(profile.name));
     }
 
     if (!rawText) {
@@ -939,8 +1000,14 @@ app.post("/whatsapp", (req, res) => {
   }
 
   if (userState[from] === "RESERVA_HORA") {
-    if (text === "0") {
+    if (text === "9") {
       return sendResponse(res, getReservationExitText(from, profile));
+    }
+
+    if (text === "0") {
+      clearReservationDraft(from);
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, getMenuPrincipalText(profile.name));
     }
 
     if (!rawText) {
@@ -954,8 +1021,14 @@ app.post("/whatsapp", (req, res) => {
   }
 
   if (userState[from] === "RESERVA_TELEFONO") {
-    if (text === "0") {
+    if (text === "9") {
       return sendResponse(res, getReservationExitText(from, profile));
+    }
+
+    if (text === "0") {
+      clearReservationDraft(from);
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, getMenuPrincipalText(profile.name));
     }
 
     if (!rawText) {
@@ -996,13 +1069,19 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "MENU_PRINCIPAL";
       return sendResponse(
         res,
-        `¡Reserva confirmada${profile.name ? `, ${profile.name}` : ""}! 🎉\nGracias por elegirnos.\nNúmero: ${reservationId}\n\n9️⃣ Inicio`
+        `¡Reserva confirmada${profile.name ? `, ${profile.name}` : ""}! 🎉\nGracias por elegirnos.\nNúmero: ${reservationId}\n\n9 Volver al menú anterior\n0 Volver al menú principal`
       );
     }
 
-    if (text === "2" || text === "0") {
+    if (text === "2" || text === "9") {
       const exitText = getReservationExitText(from, profile);
       return sendResponse(res, "Reserva cancelada. Si deseas, podemos agendar otra. 🙌\n\n" + exitText);
+    }
+
+    if (text === "0") {
+      clearReservationDraft(from);
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, getMenuPrincipalText(profile.name));
     }
 
     const draft = getReservationDraft(from);
@@ -1020,6 +1099,11 @@ app.post("/whatsapp", (req, res) => {
   // CONSULTA DE RESERVAS
   // ================================
   if (userState[from] === "VIEW_RESERVATIONS") {
+    if (text === "9") {
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, getMenuPrincipalText(profile.name));
+    }
+
     if (text === "0") {
       userState[from] = "MENU_PRINCIPAL";
       return sendResponse(res, getMenuPrincipalText(profile.name));
@@ -1033,7 +1117,7 @@ app.post("/whatsapp", (req, res) => {
   // ================================
   if (
     userState[from].startsWith("PLAZA_") &&
-    text === "0"
+    text === "9"
   ) {
     userState[from] = "PLAZA_MENU";
     return sendResponse(res, PLAZA_MENU_TEXT);
@@ -1061,8 +1145,8 @@ app.post("/whatsapp", (req, res) => {
 
 📌 Para reservar, vuelve y elige “Reservar”.
 
-0️⃣ Volver
-9️⃣ Inicio`
+9️⃣ Volver al menú anterior
+0️⃣ Volver al menú principal`
       );
     }
 
@@ -1085,7 +1169,7 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "ALPADEL_CLASES";
       return sendResponse(
         res,
-        "🎾 Clases de pádel\n\nMejora tu juego con nuestros entrenadores. Pregunta por horarios. 💪\n\n0️⃣ Volver\n9️⃣ Inicio"
+        "🎾 Clases de pádel\n\nMejora tu juego con nuestros entrenadores. Pregunta por horarios. 💪\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
       );
     }
 
@@ -1093,7 +1177,7 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "ALPADEL_PROMOCIONES";
       return sendResponse(
         res,
-        "🎉 Promociones Alpadel\n\nAprovecha nuestras promos y reserva tu cancha. ✅\n\n0️⃣ Volver\n9️⃣ Inicio"
+        "🎉 Promociones Alpadel\n\nAprovecha nuestras promos y reserva tu cancha. ✅\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
       );
     }
 
@@ -1101,8 +1185,13 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "ALPADEL_PAQUETES";
       return sendResponse(
         res,
-        "🎈 Paquetes para fiestas Alpadel\n\nArma tu evento con cancha incluida. Consúltanos. 🎉\n\n0️⃣ Volver\n9️⃣ Inicio"
+        "🎈 Paquetes para fiestas Alpadel\n\nArma tu evento con cancha incluida. Consúltanos. 🎉\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
       );
+    }
+
+    if (text === "9") {
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, getMenuPrincipalText(profile.name));
     }
 
     if (text === "0") {
@@ -1118,7 +1207,7 @@ app.post("/whatsapp", (req, res) => {
   // ================================
   if (
     userState[from].startsWith("ALPADEL_") &&
-    text === "0"
+    text === "9"
   ) {
     userState[from] = "ALPADEL_MENU";
     return sendResponse(res, ALPADEL_MENU_TEXT);
@@ -1128,6 +1217,11 @@ app.post("/whatsapp", (req, res) => {
   // ASESOR
   // ================================
   if (userState[from] === "ASESOR") {
+    if (text === "9") {
+      userState[from] = "MENU_PRINCIPAL";
+      return sendResponse(res, getMenuPrincipalText(profile.name));
+    }
+
     if (text === "0") {
       userState[from] = "MENU_PRINCIPAL";
       return sendResponse(res, getMenuPrincipalText(profile.name));
