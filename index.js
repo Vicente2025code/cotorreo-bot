@@ -1364,7 +1364,12 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "ALPADEL_CLASES";
       return sendResponse(
         res,
-        "🎾 Clases de pádel\n\nMejora tu juego con nuestros entrenadores. Pregunta por horarios. 💪\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
+        "🎾 Clases de pádel con Fran Sanchez\n\n" +
+          "Lleva tu juego al siguiente nivel con nuestro único entrenador: Fran Sanchez. 💪\n" +
+          "Escríbele directo y agenda tu clase:\n\n" +
+          "📲 WhatsApp: https://wa.me/50671316051\n" +
+          "📞 Teléfono: 7131 6051\n\n" +
+          "9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
       );
     }
 
@@ -1372,7 +1377,22 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "ALPADEL_PROMOCIONES";
       return sendResponse(
         res,
-        "🎉 Promociones Alpadel\n\nAprovecha nuestras promos y reserva tu cancha. ✅\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
+        "🎾 Promociones en Alpadel\n\n" +
+          "🎂 Cumpleañero del mes\n" +
+          "• El cumpleañero juega GRATIS durante su mes\n" +
+          "• Presenta identificación\n\n" +
+          "🏢 Empresas y colegios\n" +
+          "• 50% de descuento\n" +
+          "• Aplica para grupos de 4\n\n" +
+          "🎫 Miembros ASTEC\n" +
+          "• 20% de descuento\n" +
+          "• Membresía activa\n\n" +
+          "🎁 Padelband gratis\n" +
+          "• SIN costo (sujeto a disponibilidad)\n\n" +
+          "👨‍👩‍👧‍👦 Domingo familiar o de amigos\n" +
+          "• ₡6,000 todo el día\n" +
+          "• Sin importar la hora\n\n" +
+          "9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
       );
     }
 
