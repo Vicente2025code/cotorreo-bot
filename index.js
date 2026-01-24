@@ -468,6 +468,18 @@ function getNumberEmoji(value) {
   return digits.map((digit) => map[digit] || digit).join("");
 }
 
+function getItemDisplayNumber(index) {
+  const base = index + 1;
+  return base >= 9 ? base + 1 : base;
+}
+
+function getItemIndexFromChoice(choice) {
+  if (choice >= 10) {
+    return choice - 2;
+  }
+  return choice - 1;
+}
+
 function getPlazaCategoriesText() {
   let reply = "¡Con gusto! 👇 Aquí tienes nuestro menú completo para que elijas con calma:\n";
   reply += PLAZA_MENU_LINK + "\n\n";
@@ -513,7 +525,7 @@ function getCategoryText(categoryKey, hasCartItems) {
 
   let reply = `🍽️ ${category.label}\nElige tu favorito y armamos tu pedido en segundos:\n\n`;
   category.items.forEach((item, index) => {
-    const emojiNumber = getNumberEmoji(index + 1);
+    const emojiNumber = getNumberEmoji(getItemDisplayNumber(index));
     reply += `${emojiNumber} ${item.name} - ${formatCRC(item.price)}\n`;
   });
 
@@ -810,9 +822,10 @@ app.post("/whatsapp", (req, res) => {
     }
 
     const itemNumber = parseInt(text, 10);
-    if (!Number.isNaN(itemNumber) && itemNumber >= 1 && itemNumber <= category.items.length) {
+    const itemIndex = Number.isNaN(itemNumber) ? -1 : getItemIndexFromChoice(itemNumber);
+    if (itemIndex >= 0 && itemIndex < category.items.length) {
       const cart = getUserCart(from);
-      const item = category.items[itemNumber - 1];
+      const item = category.items[itemIndex];
       addItemToCart(cart, item);
       userState[from] = "CART_ACTION";
       getUserMeta(from).lastCategory = category.key;
