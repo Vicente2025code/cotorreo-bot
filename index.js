@@ -190,90 +190,224 @@ const PLAZA_MENU_CATEGORIES = [
   {
     key: "CAT_ENTRADAS",
     label: "Entradas",
+    number: 1,
     items: [
-      { name: "Guacamole", price: 3500 },
-      { name: "Caldos", price: 2800 },
+      { name: "Guacamole", price: 5900 },
+      { name: "Caldosa", price: 1700 },
       { name: "Ceviche de chicharrón", price: 4200 },
-      { name: "Patacones", price: 3200 },
-      { name: "Molcajete", price: 6500 }
+      { name: "Patacones", price: 3700 },
+      { name: "Papa pollo crujiente", price: 3100 },
+      { name: "Papa birria", price: 3100 },
+      { name: "Surtida mar y tierra", price: 12900 },
+      { name: "Surtida botanera", price: 11500 },
+      { name: "Molcajete", price: 12500 }
+    ]
+  },
+  {
+    key: "CAT_BURGERS_PARRILLADAS",
+    label: "Burgers y Parrilladas",
+    number: 2,
+    items: [
+      { name: "Supreme Matt Burger", price: 5900 },
+      { name: "BBQ Burger", price: 5900 },
+      { name: "Chicken Burger", price: 4600 },
+      { name: "Birria Burger", price: 5600 },
+      { name: "Parrillada Arrachera", price: 13500 },
+      { name: "Parrillada Lomo de res", price: 6200 }
+    ]
+  },
+  {
+    key: "CAT_ANTOJITOS",
+    label: "Antojitos Mexicanos",
+    number: 3,
+    items: [
+      { name: "Esquite", price: 3100 },
+      { name: "Nachos Pollo", price: 3900 },
+      { name: "Nachos Birria", price: 4500 },
+      { name: "Nachos Pastor", price: 4500 },
+      { name: "Nachos Mixto", price: 4500 },
+      { name: "Burrito Pollo Crispy", price: 4200 },
+      { name: "Burrito Pollo Teriyaki", price: 4200 },
+      { name: "Burrito Birria", price: 4700 },
+      { name: "Burrito Pastor", price: 4500 },
+      { name: "Quesadilla Pollo", price: 2900 },
+      { name: "Quesadilla Birria", price: 4300 },
+      { name: "Quesadilla Pastor", price: 4300 },
+      { name: "Chilaquiles enchipotlados Pollo", price: 5000 },
+      { name: "Chilaquiles enchipotlados Pastor", price: 5500 },
+      { name: "Chifrimex", price: 4500 }
     ]
   },
   {
     key: "CAT_TACOS",
-    label: "Tacos",
+    label: "Tacos Mexicanos",
+    number: 4,
     items: [
-      { name: "Tacos Pastor", price: 1800 },
-      { name: "Tacos Birria", price: 2200 },
-      { name: "Tacos Camarón", price: 2500 },
-      { name: "Tacos Vegetarianos", price: 1600 }
+      { name: "Pastor", price: 4000 },
+      { name: "Vegetarianos", price: 4000 },
+      { name: "Lomito", price: 4900 },
+      { name: "Pollo", price: 4000 },
+      { name: "Tacos ticos fusión", price: 4700 },
+      { name: "Camarón", price: 5700 },
+      { name: "Quesabirrias", price: 5000 }
     ]
   },
   {
-    key: "CAT_BURGERS",
-    label: "Hamburguesas",
+    key: "CAT_CEVICHES",
+    label: "Ceviches y Mariscos",
+    number: 5,
     items: [
-      { name: "Supreme", price: 5500 },
-      { name: "BBQ", price: 5000 },
-      { name: "Chicken", price: 4800 },
-      { name: "Birria", price: 6000 },
-      { name: "Parrillada", price: 7500 }
+      { name: "Ceviche tico", price: 2900 },
+      { name: "Ceviche peruano", price: 3900 },
+      { name: "Ceviche de camarón Cotorreo", price: 5500 },
+      { name: "Filete de pescado", price: 4600 },
+      { name: "Camarones empanizados", price: 4900 },
+      { name: "Salmón a la plancha", price: 9500 },
+      { name: "Fajitas mar y tierra", price: 6900 }
     ]
   },
   {
-    key: "CAT_SUSHI",
-    label: "Sushi",
+    key: "CAT_SABORES",
+    label: "Sabores a lo tico",
+    number: 6,
     items: [
-      { name: "California Roll", price: 4500 },
-      { name: "Tico Roll", price: 5000 },
-      { name: "Crazy Roll", price: 5500 },
-      { name: "Teriyaki Roll", price: 4800 }
-    ]
-  },
-  {
-    key: "CAT_PIZZAS",
-    label: "Pizzas",
-    items: [
-      { name: "Jamón y queso", price: 6500 },
-      { name: "Pepperoni", price: 7000 },
-      { name: "Birria", price: 8000 },
-      { name: "Hawaiana", price: 6800 }
-    ]
-  },
-  {
-    key: "CAT_ENSALADAS",
-    label: "Ensaladas",
-    items: [
-      { name: "Cotorreo verde", price: 4200 },
-      { name: "Poke bowl", price: 5500 },
-      { name: "Pita", price: 4800 },
-      { name: "Bruschetta", price: 3900 }
+      { name: "Cordon bleu", price: 4500 },
+      { name: "Chicharrones", price: 4500 },
+      { name: "Chifrijo", price: 4500 },
+      { name: "Fajitas lomo jalapeño", price: 4700 }
     ]
   },
   {
     key: "CAT_SOPAS",
-    label: "Sopas",
+    label: "Sopas y Caldos",
+    number: 7,
     items: [
-      { name: "Ramen Tonkotsu", price: 6500 },
-      { name: "Ramen Birria", price: 7000 },
-      { name: "Sopa Azteca", price: 4500 }
+      { name: "Ramen tonkotsu", price: 5500 },
+      { name: "Ramen birria", price: 5300 },
+      { name: "Sopa Azteca Pollo", price: 4300 },
+      { name: "Sopa Azteca Birria", price: 5200 },
+      { name: "Consomé de pollo", price: 4300 }
     ]
   },
   {
     key: "CAT_ARROCES",
     label: "Arroces y Pastas",
+    number: 8,
     items: [
-      { name: "Arroz con camarón", price: 7500 },
-      { name: "Arroz con pollo", price: 6800 },
-      { name: "Pasta enchilada", price: 6200 }
+      { name: "Arroz con camarones", price: 5500 },
+      { name: "Arroz con pollo", price: 4900 },
+      { name: "Arroz cantonés", price: 4900 },
+      { name: "Pasta enchipotlada Lomo", price: 5900 },
+      { name: "Pasta enchipotlada Pollo", price: 5200 },
+      { name: "Pasta enchipotlada Camarón", price: 6500 },
+      { name: "Pasta morrón Lomo", price: 5900 },
+      { name: "Pasta morrón Pollo", price: 5100 },
+      { name: "Pasta morrón Camarón", price: 6500 },
+      { name: "Pasta a la bolognesa", price: 3500 }
+    ]
+  },
+  {
+    key: "CAT_SUSHI_CRUDO",
+    label: "Sushi Crudo",
+    number: 10,
+    items: [
+      { name: "Caterpillar Roll (10 pzas)", price: 5100 },
+      { name: "Salmon Lovers Roll (10 pzas)", price: 5900 }
+    ]
+  },
+  {
+    key: "CAT_MENU_EJECUTIVO",
+    label: "Menú Ejecutivo",
+    number: 11,
+    items: [
+      { name: "Ejecutivo KUMO", price: 3800 },
+      { name: "Ejecutivo FISHERS", price: 3800 },
+      { name: "Ejecutivo COTORREO", price: 3800 },
+      { name: "Ejecutivo PITS", price: 3800 }
+    ]
+  },
+  {
+    key: "CAT_SUSHI_COCIDO",
+    label: "Sushi Cocido",
+    number: 12,
+    items: [
+      { name: "California Roll (10 pzas)", price: 3000 },
+      { name: "Camarón Roll (10 pzas)", price: 4000 },
+      { name: "Pollo Teriyaki Roll (10 pzas)", price: 5500 },
+      { name: "Tico Roll (10 pzas)", price: 3500 },
+      { name: "Tico Especial Roll (10 pzas)", price: 4000 },
+      { name: "Rib Eye Teriyaki Roll (10 pzas)", price: 4900 },
+      { name: "Crazy Roll (10 pzas)", price: 5900 }
+    ]
+  },
+  {
+    key: "CAT_ASIAN",
+    label: "Asian Streetfood",
+    number: 13,
+    items: [
+      { name: "Duo coreano", price: 5000 },
+      { name: "Teppanyaki Pollo", price: 4750 },
+      { name: "Teppanyaki Res", price: 5500 },
+      { name: "Teriyaki Pollo", price: 4800 },
+      { name: "Teriyaki Res", price: 5500 },
+      { name: "Corn Dogs", price: 2500 }
+    ]
+  },
+  {
+    key: "CAT_PIZZAS",
+    label: "Pizzas",
+    number: 14,
+    items: [
+      { name: "Jamón y queso Familiar", price: 7900 },
+      { name: "Jamón y queso Personal", price: 4500 },
+      { name: "Pepperoni Familiar", price: 9500 },
+      { name: "Pepperoni Personal", price: 5300 },
+      { name: "Birria Familiar", price: 9500 },
+      { name: "Birria Personal", price: 5300 },
+      { name: "Pastor Familiar", price: 7500 },
+      { name: "Pastor Personal", price: 5300 },
+      { name: "Margarita Familiar", price: 6500 },
+      { name: "Margarita Personal", price: 4500 },
+      { name: "Hawaiana Familiar", price: 8500 },
+      { name: "Hawaiana Personal", price: 5300 },
+      { name: "Suprema Familiar", price: 10500 },
+      { name: "Suprema Personal", price: 6500 },
+      { name: "BBQ pollo Familiar", price: 8500 },
+      { name: "BBQ pollo Personal", price: 4500 },
+      { name: "BBQ chicharrón Familiar", price: 9000 },
+      { name: "BBQ chicharrón Personal", price: 4900 },
+      { name: "Nacho de carne Familiar", price: 9000 },
+      { name: "Nacho de carne Personal", price: 4900 }
+    ]
+  },
+  {
+    key: "CAT_ENSALADAS",
+    label: "Ensaladas, Pitas y Poke",
+    number: 15,
+    items: [
+      { name: "Cotorreo verde bowl Pollo", price: 4900 },
+      { name: "Cotorreo verde bowl Res", price: 5200 },
+      { name: "Poke bowl Salmón shoyu", price: 5700 },
+      { name: "Poke bowl Pollo teriyaki", price: 5100 },
+      { name: "Pita Pollo", price: 4300 },
+      { name: "Pita Pastor", price: 4600 },
+      { name: "Pita Camarón", price: 4900 },
+      { name: "Brusheta Pollo", price: 4600 },
+      { name: "Brusheta Res", price: 5200 },
+      { name: "Brusheta Aguacate fresco", price: 3300 }
     ]
   },
   {
     key: "CAT_INFANTIL",
     label: "Menú Infantil",
+    number: 16,
     items: [
-      { name: "Dedos de pollo", price: 3500 },
-      { name: "Dedos de pescado", price: 3800 },
-      { name: "Hamburguesa infantil", price: 3200 }
+      { name: "Dedos de pollo", price: 3900 },
+      { name: "Dedos de pescado", price: 3900 },
+      { name: "Salchipapas", price: 2900 },
+      { name: "Pasta a la mantequilla", price: 2900 },
+      { name: "Hamburguesa con queso", price: 4300 },
+      { name: "Flautas de jamón con queso", price: 2900 }
     ]
   }
 ];
@@ -308,18 +442,24 @@ function getPlazaCategoriesText() {
   reply += "Elige tu categoría favorita y arma tu pedido en segundos:\n\n";
 
   PLAZA_MENU_CATEGORIES.forEach((category, index) => {
-    const emojiNumber = category.label === "Menú Infantil"
+    const emojiNumber = category.number === 10
       ? "🔟"
-      : (["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣"][index] || `${index + 1}`);
+      : (["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣"][index] || `${category.number}.`);
     const emojiByLabel = {
       Entradas: "🥑",
-      Tacos: "🌮",
-      Hamburguesas: "🍔",
-      Sushi: "🍣",
-      Pizzas: "🍕",
-      Ensaladas: "🥗",
-      Sopas: "🍲",
+      "Burgers y Parrilladas": "🍔",
+      "Antojitos Mexicanos": "🌮",
+      "Tacos Mexicanos": "🌮",
+      "Ceviches y Mariscos": "🐟",
+      "Sabores a lo tico": "🇨🇷",
+      "Sopas y Caldos": "🍲",
       "Arroces y Pastas": "🍝",
+      "Sushi Crudo": "🍣",
+      "Menú Ejecutivo": "🍽️",
+      "Sushi Cocido": "🍣",
+      "Asian Streetfood": "🥢",
+      Pizzas: "🍕",
+      "Ensaladas, Pitas y Poke": "🥗",
       "Menú Infantil": "👧🧒"
     };
     const emoji = emojiByLabel[category.label] || "🍽️";
@@ -340,185 +480,7 @@ function getCategoryText(categoryKey, hasCartItems) {
     return getPlazaCategoriesText();
   }
 
-  if (category.label === "Entradas") {
-    const prices = category.items.reduce((acc, item) => {
-      acc[item.name] = formatCRC(item.price);
-      return acc;
-    }, {});
-    return (
-      "😎 *Entradas que hacen feliz al estómago*\n\n" +
-      "Dime… ¿cuál te guiña el ojo hoy? 👀🍴\n\n" +
-      `1️⃣ Guacamole — ${prices.Guacamole}\n` +
-      `2️⃣ Caldos — ${prices.Caldos}\n` +
-      `3️⃣ Ceviche de chicharrón — ${prices["Ceviche de chicharrón"]}\n` +
-      `4️⃣ Patacones — ${prices.Patacones}\n` +
-      `5️⃣ Molcajete — ${prices.Molcajete} (nivel pro 😏)\n\n` +
-      "🛒 Para mandarlo directo al carrito, escribe el número\n" +
-      "(no muerde, lo prometo)\n\n" +
-      "9️⃣ Volver al menú anterior\n" +
-      "0️⃣ Volver al menú principal"
-    );
-  }
-
-  if (category.label === "Tacos") {
-    const prices = category.items.reduce((acc, item) => {
-      acc[item.name] = formatCRC(item.price);
-      return acc;
-    }, {});
-    return (
-      "🌮 *Tacos que hacen historia*\n\n" +
-      "Aquí no hay decisiones malas… solo tacos increíbles 😋\n" +
-      "¿Cuál se te antoja hoy?\n\n" +
-      `1️⃣ Tacos Pastor — ${prices["Tacos Pastor"]} 🔥\n` +
-      `2️⃣ Tacos Birria — ${prices["Tacos Birria"]} ⭐\n` +
-      `3️⃣ Tacos Camarón — ${prices["Tacos Camarón"]} 🦐\n` +
-      `4️⃣ Tacos Vegetarianos — ${prices["Tacos Vegetarianos"]} 🌱\n\n` +
-      "👉 *Para agregar al carrito*, escribe el número del taco\n" +
-      "🛒 (tranquilo, después puedes pedir más 😉)\n\n" +
-      "9️⃣ Volver al menú anterior\n" +
-      "0️⃣ Volver al menú principal"
-    );
-  }
-
-  if (category.label === "Hamburguesas") {
-    const prices = category.items.reduce((acc, item) => {
-      acc[item.name] = formatCRC(item.price);
-      return acc;
-    }, {});
-    return (
-      "🍔 *Hamburguesas para caer rendido*\n\n" +
-      "Jugosas, poderosas y con mucho sabor 😍\n" +
-      "¿Cuál te vas a pedir hoy?\n\n" +
-      `1️⃣ Supreme — ${prices.Supreme} 👑\n` +
-      `2️⃣ BBQ — ${prices.BBQ} 🔥\n` +
-      `3️⃣ Chicken — ${prices.Chicken} 🍗\n` +
-      `4️⃣ Birria — ${prices.Birria} 🌮\n` +
-      `5️⃣ Parrillada — ${prices.Parrillada} 🥩\n\n` +
-      "👉 Para agregar al carrito, escribe el número\n" +
-      "🛒 (si quieres combo, dímelo y te ayudamos)\n\n" +
-      "9️⃣ Volver al menú anterior\n" +
-      "0️⃣ Volver al menú principal"
-    );
-  }
-
-  if (category.label === "Sushi") {
-    const prices = category.items.reduce((acc, item) => {
-      acc[item.name] = formatCRC(item.price);
-      return acc;
-    }, {});
-    return (
-      "🍣 *Sushi que enamora a primera mordida*\n\n" +
-      "Fresco, balanceado y con sabor top ✨\n" +
-      "¿Cuál roll te vas a dar hoy?\n\n" +
-      `1️⃣ California Roll — ${prices["California Roll"]} 🥢\n` +
-      `2️⃣ Tico Roll — ${prices["Tico Roll"]} 🌴\n` +
-      `3️⃣ Crazy Roll — ${prices["Crazy Roll"]} 🤯\n` +
-      `4️⃣ Teriyaki Roll — ${prices["Teriyaki Roll"]} 🍱\n\n` +
-      "👉 Para agregar al carrito, escribe el número\n" +
-      "🛒 (si quieres recomendación, dímelo 😉)\n\n" +
-      "9️⃣ Volver al menú anterior\n" +
-      "0️⃣ Volver al menú principal"
-    );
-  }
-
-  if (category.label === "Pizzas") {
-    const prices = category.items.reduce((acc, item) => {
-      acc[item.name] = formatCRC(item.price);
-      return acc;
-    }, {});
-    return (
-      "🍕 *Pizzas que alegran cualquier plan*\n\n" +
-      "Crujientes, generosas y llenas de sabor 😍\n" +
-      "¿Cuál te vas a pedir hoy?\n\n" +
-      `1️⃣ Jamón y queso — ${prices["Jamón y queso"]} 🧀\n` +
-      `2️⃣ Pepperoni — ${prices.Pepperoni} 🌶️\n` +
-      `3️⃣ Birria — ${prices.Birria} 🔥\n` +
-      `4️⃣ Hawaiana — ${prices.Hawaiana} 🍍\n\n` +
-      "👉 Para agregar al carrito, escribe el número\n" +
-      "🛒 (si quieres extra queso, dímelo 😉)\n\n" +
-      "9️⃣ Volver al menú anterior\n" +
-      "0️⃣ Volver al menú principal"
-    );
-  }
-
-  if (category.label === "Ensaladas") {
-    const prices = category.items.reduce((acc, item) => {
-      acc[item.name] = formatCRC(item.price);
-      return acc;
-    }, {});
-    return (
-      "🥗 *Ensaladas frescas para sentirte ligero*\n\n" +
-      "Color, sabor y frescura en cada bocado ✨\n" +
-      "¿Cuál se te antoja hoy?\n\n" +
-      `1️⃣ Cotorreo verde — ${prices["Cotorreo verde"]} 🥬\n` +
-      `2️⃣ Poke bowl — ${prices["Poke bowl"]} 🐟\n` +
-      `3️⃣ Pita — ${prices.Pita} 🫓\n` +
-      `4️⃣ Bruschetta — ${prices.Bruschetta} 🍅\n\n` +
-      "👉 Para agregar al carrito, escribe el número\n" +
-      "🛒 (si quieres algo más ligero o más completo, te ayudo)\n\n" +
-      "9️⃣ Volver al menú anterior\n" +
-      "0️⃣ Volver al menú principal"
-    );
-  }
-
-  if (category.label === "Sopas") {
-    const prices = category.items.reduce((acc, item) => {
-      acc[item.name] = formatCRC(item.price);
-      return acc;
-    }, {});
-    return (
-      "🍲 *Sopas que reconfortan el alma*\n\n" +
-      "Calientitas, sabrosas y perfectas para antojo 😌\n" +
-      "¿Cuál te apetece hoy?\n\n" +
-      `1️⃣ Ramen Tonkotsu — ${prices["Ramen Tonkotsu"]} 🍜\n` +
-      `2️⃣ Ramen Birria — ${prices["Ramen Birria"]} 🔥\n` +
-      `3️⃣ Sopa Azteca — ${prices["Sopa Azteca"]} 🌶️\n\n` +
-      "👉 Para agregar al carrito, escribe el número\n" +
-      "🛒 (si quieres algo más suave o más picante, dime)\n\n" +
-      "9️⃣ Volver al menú anterior\n" +
-      "0️⃣ Volver al menú principal"
-    );
-  }
-
-  if (category.label === "Arroces y Pastas") {
-    const prices = category.items.reduce((acc, item) => {
-      acc[item.name] = formatCRC(item.price);
-      return acc;
-    }, {});
-    return (
-      "🍝 *Arroces y pastas que llenan el alma*\n\n" +
-      "Sabrosos, completos y perfectos para quedar feliz 😋\n" +
-      "¿Cuál se te antoja hoy?\n\n" +
-      `1️⃣ Arroz con camarón — ${prices["Arroz con camarón"]} 🦐\n` +
-      `2️⃣ Arroz con pollo — ${prices["Arroz con pollo"]} 🍗\n` +
-      `3️⃣ Pasta enchilada — ${prices["Pasta enchilada"]} 🌶️\n\n` +
-      "👉 Para agregar al carrito, escribe el número\n" +
-      "🛒 (si quieres algo más suave o más picante, te ayudo)\n\n" +
-      "9️⃣ Volver al menú anterior\n" +
-      "0️⃣ Volver al menú principal"
-    );
-  }
-
-if (category.label === "Menú Infantil") {
-    const prices = category.items.reduce((acc, item) => {
-      acc[item.name] = formatCRC(item.price);
-      return acc;
-    }, {});
-    return (
-      "👧🧒 *Menú infantil para sonrisas felices*\n\n" +
-      "Rico, divertido y perfecto para los peques 😄\n" +
-      "¿Cuál eliges hoy?\n\n" +
-      `1️⃣ Dedos de pollo — ${prices["Dedos de pollo"]} 🍗\n` +
-      `2️⃣ Dedos de pescado — ${prices["Dedos de pescado"]} 🐟\n` +
-      `3️⃣ Hamburguesa infantil — ${prices["Hamburguesa infantil"]} 🍔\n\n` +
-      "👉 Para agregar al carrito, escribe el número\n" +
-      "🛒 (si quieres bebida para niños, dímelo y te ayudo)\n\n" +
-      "9️⃣ Volver al menú anterior\n" +
-      "0️⃣ Volver al menú principal"
-    );
-  }
-
-  let reply = `🍽️ Menú ${category.label}\nElige tu favorito y armamos tu pedido en segundos:\n\n`;
+  let reply = `🍽️ ${category.label}\nElige tu favorito y armamos tu pedido en segundos:\n\n`;
   const emojiNumbers = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
   category.items.forEach((item, index) => {
     const emojiNumber = emojiNumbers[index] || `${index + 1}.`;
@@ -776,21 +738,13 @@ app.post("/whatsapp", (req, res) => {
     }
 
     const choice = parseInt(text, 10);
-    if (choice === 10) {
-      const categoryKey = PLAZA_MENU_CATEGORIES.find((category) => category.label === "Menú Infantil")?.key;
-      if (!categoryKey) {
-        return sendResponse(res, getPlazaCategoriesText());
+    if (!Number.isNaN(choice)) {
+      const category = PLAZA_MENU_CATEGORIES.find((entry) => entry.number === choice);
+      if (category) {
+        userState[from] = category.key;
+        getUserMeta(from).lastCategory = category.key;
+        return sendResponse(res, getCategoryText(category.key, getUserCart(from).length > 0));
       }
-      userState[from] = categoryKey;
-      getUserMeta(from).lastCategory = categoryKey;
-      return sendResponse(res, getCategoryText(categoryKey, getUserCart(from).length > 0));
-    }
-
-    if (!Number.isNaN(choice) && choice >= 1 && choice <= 8) {
-      const categoryKey = PLAZA_MENU_CATEGORIES[choice - 1].key;
-      userState[from] = categoryKey;
-      getUserMeta(from).lastCategory = categoryKey;
-      return sendResponse(res, getCategoryText(categoryKey, getUserCart(from).length > 0));
     }
 
     return sendResponse(res, getPlazaCategoriesText());
