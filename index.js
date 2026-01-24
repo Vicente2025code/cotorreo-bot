@@ -435,16 +435,47 @@ function formatCRC(amount) {
   return "₡" + amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
+function getNumberEmoji(value) {
+  const special = {
+    10: "🔟",
+    11: "1️⃣1️⃣",
+    12: "1️⃣2️⃣",
+    13: "1️⃣3️⃣",
+    14: "1️⃣4️⃣",
+    15: "1️⃣5️⃣",
+    16: "1️⃣6️⃣",
+    17: "1️⃣7️⃣",
+    18: "1️⃣8️⃣",
+    19: "1️⃣9️⃣",
+    20: "2️⃣0️⃣"
+  };
+  if (special[value]) {
+    return special[value];
+  }
+  const digits = value.toString().split("");
+  const map = {
+    "0": "0️⃣",
+    "1": "1️⃣",
+    "2": "2️⃣",
+    "3": "3️⃣",
+    "4": "4️⃣",
+    "5": "5️⃣",
+    "6": "6️⃣",
+    "7": "7️⃣",
+    "8": "8️⃣",
+    "9": "9️⃣"
+  };
+  return digits.map((digit) => map[digit] || digit).join("");
+}
+
 function getPlazaCategoriesText() {
   let reply = "¡Con gusto! 👇 Aquí tienes nuestro menú completo para que elijas con calma:\n";
   reply += PLAZA_MENU_LINK + "\n\n";
   reply += "¿Se te antoja algo rico hoy? 😋 Tenemos opciones para todos los gustos.\n";
   reply += "Elige tu categoría favorita y arma tu pedido en segundos:\n\n";
 
-  PLAZA_MENU_CATEGORIES.forEach((category, index) => {
-    const emojiNumber = category.number === 10
-      ? "🔟"
-      : (["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣"][index] || `${category.number}.`);
+  PLAZA_MENU_CATEGORIES.forEach((category) => {
+    const emojiNumber = getNumberEmoji(category.number);
     const emojiByLabel = {
       Entradas: "🥑",
       "Burgers y Parrilladas": "🍔",
@@ -481,9 +512,8 @@ function getCategoryText(categoryKey, hasCartItems) {
   }
 
   let reply = `🍽️ ${category.label}\nElige tu favorito y armamos tu pedido en segundos:\n\n`;
-  const emojiNumbers = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
   category.items.forEach((item, index) => {
-    const emojiNumber = emojiNumbers[index] || `${index + 1}.`;
+    const emojiNumber = getNumberEmoji(index + 1);
     reply += `${emojiNumber} ${item.name} - ${formatCRC(item.price)}\n`;
   });
 
