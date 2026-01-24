@@ -706,7 +706,11 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "PLAZA_PAQUETES";
       return sendResponse(
         res,
-        "🎈 Paquetes para fiestas Plaza Cotorreo\n\nCelebra con nosotros. Pregunta por opciones y precios. 🎉\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
+        "🎈 Paquetes para fiestas Plaza Cotorreo\n\n" +
+          "Mira la imagen con los paquetes aquí:\n" +
+          "https://drive.google.com/open?id=11xvFT0-drZTnJl_ixFE5FOy8PS_ewnwV\n\n" +
+          "Celebra con nosotros. Pregunta por opciones y precios. 🎉\n\n" +
+          "9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
       );
     }
 
@@ -1354,7 +1358,11 @@ app.post("/whatsapp", (req, res) => {
       userState[from] = "ALPADEL_PAQUETES";
       return sendResponse(
         res,
-        "🎈 Paquetes para fiestas Alpadel\n\nArma tu evento con cancha incluida. Consúltanos. 🎉\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
+        "🎈 Paquetes para fiestas Alpadel\n\n" +
+          "Mira la imagen con los paquetes aquí:\n" +
+          "https://drive.google.com/open?id=11xvFT0-drZTnJl_ixFE5FOy8PS_ewnwV\n\n" +
+          "Arma tu evento con cancha incluida. Consúltanos. 🎉\n\n" +
+          "9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
       );
     }
 
