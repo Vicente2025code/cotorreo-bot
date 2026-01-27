@@ -16,6 +16,7 @@ const userMeta = {};
 const userProfile = {};
 const userReservations = {};
 const userReservationDraft = {};
+const userHandoff = {};
 
 // ================================
 // TEXTOS (FÁCILES DE EDITAR)
@@ -69,6 +70,16 @@ Si prefieres, también puedes llamarnos:
 0️⃣ Volver al menú principal
 `;
 
+const HANDOFF_MESSAGE = `👋 ¡Perfecto!
+
+Ya te está atendiendo una persona de nuestro equipo 💚
+
+Mientras coordinamos todo, si querés te puedo recomendar algo del menú que suele gustar mucho 😋🔥
+
+Decime qué se te antoja y lo vemos juntos.`;
+
+const HANDOFF_DURATION_MS = 45 * 60 * 1000;
+
 function getUserProfile(from) {
   if (!userProfile[from]) {
     userProfile[from] = { name: null };
@@ -82,6 +93,36 @@ function isGlobalCommand(text) {
 
 function getNamePrompt() {
   return "¡Hola! Para brindarte un mejor servicio, dime tu nombre.";
+}
+
+function getUserHandoff(from) {
+  if (!userHandoff[from]) {
+    userHandoff[from] = {
+      active: false,
+      until: 0,
+      notified: false
+    };
+  }
+  return userHandoff[from];
+}
+
+function clearUserHandoff(from) {
+  const handoff = getUserHandoff(from);
+  handoff.active = false;
+  handoff.until = 0;
+  handoff.notified = false;
+}
+
+function isHandoffActive(from) {
+  const handoff = getUserHandoff(from);
+  if (!handoff.active) {
+    return false;
+  }
+  if (handoff.until && Date.now() > handoff.until) {
+    clearUserHandoff(from);
+    return false;
+  }
+  return true;
 }
 
 function getMenuPrincipalText(name) {
@@ -610,6 +651,14 @@ function sendResponse(res, message) {
 `);
 }
 
+function sendEmptyResponse(res) {
+  res.writeHead(200, { "Content-Type": "text/xml" });
+  res.end(`
+<Response>
+</Response>
+`);
+}
+
 // ================================
 // WEBHOOK WHATSAPP
 // ================================
@@ -627,6 +676,33 @@ app.post("/whatsapp", (req, res) => {
   getUserCart(from);
   getUserMeta(from);
   const profile = getUserProfile(from);
+  const handoff = getUserHandoff(from);
+
+  // ================================
+  // HANDOFF MANUAL (ASESOR)
+  // ================================
+  if (text === "tomar") {
+    const wasActive = isHandoffActive(from);
+    handoff.active = true;
+    handoff.until = Date.now() + HANDOFF_DURATION_MS;
+    if (!wasActive) {
+      handoff.notified = false;
+    }
+    return sendResponse(res, "✅ Chat tomado. Bot pausado 45 min. Usa /liberar para reactivar.");
+  }
+
+  if (text === "/liberar" || text === "liberar") {
+    clearUserHandoff(from);
+    return sendResponse(res, "✅ Bot reactivado.");
+  }
+
+  if (isHandoffActive(from)) {
+    if (!handoff.notified) {
+      handoff.notified = true;
+      return sendResponse(res, HANDOFF_MESSAGE);
+    }
+    return sendEmptyResponse(res);
+  }
 
   // ================================
   // ONBOARDING NOMBRE
