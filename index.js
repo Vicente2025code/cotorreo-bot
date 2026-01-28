@@ -3,8 +3,10 @@
 // ================================
 const express = require("express");
 const bodyParser = require("body-parser");
+const fetch = global.fetch || require("node-fetch");
 
 const app = express();
+app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
 // ================================
@@ -92,7 +94,7 @@ function isGlobalCommand(text) {
 }
 
 function getNamePrompt() {
-  return "¡Hola! Para brindarte un mejor servicio, dime tu nombre.";
+  return "👋 ¡Hola! Bienvenido a Grupo Cotorreo\n\nPara darte una atención más rápida y personalizada,\n¿me compartís tu nombre, por favor? 😊";
 }
 
 function getUserHandoff(from) {
@@ -640,32 +642,43 @@ function getCheckoutText(from, cart) {
 }
 
 // ================================
-// FUNCIÓN ÚNICA PARA RESPONDER
+// ENVIO MENSAJES WATI
 // ================================
-function sendResponse(res, message) {
-  res.writeHead(200, { "Content-Type": "text/xml" });
-  res.end(`
-<Response>
-  <Message>${message}</Message>
-</Response>
-`);
-}
+async function sendWatiMessage(to, message) {
+  const token = process.env.WATI_TOKEN;
+  const endpoint = process.env.WATI_ENDPOINT || "https://live-mt-server.wati.io/1085608/api/v1/sendSessionMessage";
+  const payload = {
+    whatsappNumber: to,
+    messageText: message
+  };
 
-function sendEmptyResponse(res) {
-  res.writeHead(200, { "Content-Type": "text/xml" });
-  res.end(`
-<Response>
-</Response>
-`);
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
+    });
+    console.log("WATI status:", response.status);
+  } catch (error) {
+    console.log("WATI error:", error?.message || error);
+  }
 }
 
 // ================================
 // WEBHOOK WHATSAPP
 // ================================
-app.post("/whatsapp", (req, res) => {
-  const from = req.body.From;
-  const rawText = (req.body.Body || "").trim();
+app.post("/whatsapp", async (req, res) => {
+  const eventType = req.body?.eventType;
+  const from = req.body.waId;
+  const rawText = (req.body.text || "").trim();
   const text = rawText.toLowerCase();
+
+  if (!from) {
+    return res.sendStatus(200);
+  }
 
   // ================================
   // INICIALIZAR ESTADO
@@ -678,6 +691,22 @@ app.post("/whatsapp", (req, res) => {
   const profile = getUserProfile(from);
   const handoff = getUserHandoff(from);
 
+  if (eventType === "chat_assigned") {
+    handoff.active = true;
+    handoff.until = Date.now();
+    handoff.notified = true;
+    return res.sendStatus(200);
+  }
+
+  if (eventType === "chat_closed" || eventType === "chat_unassigned") {
+    clearUserHandoff(from);
+    return res.sendStatus(200);
+  }
+
+  if (eventType && eventType !== "message_received") {
+    return res.sendStatus(200);
+  }
+
   // ================================
   // HANDOFF MANUAL (ASESOR)
   // ================================
@@ -688,20 +717,18 @@ app.post("/whatsapp", (req, res) => {
     if (!wasActive) {
       handoff.notified = false;
     }
-    return sendResponse(res, "✅ Chat tomado. Bot pausado 45 min. Usa /liberar para reactivar.");
+    await sendWatiMessage(from, "✅ Chat tomado. Bot pausado 45 min. Usa /liberar para reactivar.");
+    return res.sendStatus(200);
   }
 
   if (text === "/liberar" || text === "liberar") {
     clearUserHandoff(from);
-    return sendResponse(res, "✅ Bot reactivado.");
+    await sendWatiMessage(from, "✅ Bot reactivado.");
+    return res.sendStatus(200);
   }
 
   if (isHandoffActive(from)) {
-    if (!handoff.notified) {
-      handoff.notified = true;
-      return sendResponse(res, HANDOFF_MESSAGE);
-    }
-    return sendEmptyResponse(res);
+    return res.sendStatus(200);
   }
 
   // ================================
@@ -709,17 +736,20 @@ app.post("/whatsapp", (req, res) => {
   // ================================
   if (userState[from] === "ASK_NAME") {
     if (!rawText || isGlobalCommand(text)) {
-      return sendResponse(res, getNamePrompt());
+      await sendWatiMessage(from, getNamePrompt());
+      return res.sendStatus(200);
     }
 
     profile.name = rawText;
     userState[from] = "MENU_PRINCIPAL";
-    return sendResponse(res, getMenuPrincipalText(profile.name));
+    await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+    return res.sendStatus(200);
   }
 
   if (!profile.name) {
     userState[from] = "ASK_NAME";
-    return sendResponse(res, getNamePrompt());
+    await sendWatiMessage(from, getNamePrompt());
+    return res.sendStatus(200);
   }
 
   // ================================
@@ -727,22 +757,26 @@ app.post("/whatsapp", (req, res) => {
   // ================================
   if (["menu", "menú", "inicio", "hola", "0"].includes(text)) {
     userState[from] = "MENU_PRINCIPAL";
-    return sendResponse(res, getMenuPrincipalText(profile.name));
+    await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+    return res.sendStatus(200);
   }
 
   if (text === "asesor") {
     userState[from] = "ASESOR";
-    return sendResponse(res, ASESOR_TEXT);
+    await sendWatiMessage(from, ASESOR_TEXT);
+    return res.sendStatus(200);
   }
 
   if (text === "carrito") {
     userState[from] = "VIEW_CART";
-    return sendResponse(res, getCartText(getUserCart(from)));
+    await sendWatiMessage(from, getCartText(getUserCart(from)));
+    return res.sendStatus(200);
   }
 
   if (text === "reservas") {
     userState[from] = "VIEW_RESERVATIONS";
-    return sendResponse(res, getReservationDetailsText(getUserReservation(from)));
+    await sendWatiMessage(from, getReservationDetailsText(getUserReservation(from)));
+    return res.sendStatus(200);
   }
 
   // ================================
@@ -751,25 +785,30 @@ app.post("/whatsapp", (req, res) => {
   if (userState[from] === "MENU_PRINCIPAL") {
     if (text === "1") {
       userState[from] = "PLAZA_MENU";
-      return sendResponse(res, PLAZA_MENU_TEXT);
+      await sendWatiMessage(from, PLAZA_MENU_TEXT);
+      return res.sendStatus(200);
     }
 
     if (text === "2") {
       userState[from] = "ALPADEL_MENU";
-      return sendResponse(res, ALPADEL_MENU_TEXT);
+      await sendWatiMessage(from, ALPADEL_MENU_TEXT);
+      return res.sendStatus(200);
     }
 
     if (text === "3") {
       userState[from] = "ASESOR";
-      return sendResponse(res, ASESOR_TEXT);
+      await sendWatiMessage(from, ASESOR_TEXT);
+      return res.sendStatus(200);
     }
 
     if (text === "4") {
       userState[from] = "VIEW_RESERVATIONS";
-      return sendResponse(res, getReservationDetailsText(getUserReservation(from)));
+      await sendWatiMessage(from, getReservationDetailsText(getUserReservation(from)));
+      return res.sendStatus(200);
     }
 
-    return sendResponse(res, getMenuPrincipalText(profile.name));
+    await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+    return res.sendStatus(200);
   }
 
   // ================================
@@ -778,31 +817,26 @@ app.post("/whatsapp", (req, res) => {
   if (userState[from] === "PLAZA_MENU") {
     if (text === "1") {
       userState[from] = "PLAZA_MENU_CATEGORIES";
-      return sendResponse(res, getPlazaCategoriesText());
+      await sendWatiMessage(from, getPlazaCategoriesText());
+      return res.sendStatus(200);
     }
 
     if (text === "2") {
       userState[from] = "PLAZA_PROMOCIONES";
-      return sendResponse(
-        res,
-        "🎉 Promociones Plaza Cotorreo\n\nAprovecha nuestras promos especiales y disfruta más por menos. 😋\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
-      );
+      await sendWatiMessage(from, "🎉 Promociones Plaza Cotorreo\n\nAprovecha nuestras promos especiales y disfruta más por menos. 😋\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal");
+      return res.sendStatus(200);
     }
 
     if (text === "3") {
       userState[from] = "PLAZA_HORARIOS";
-      return sendResponse(
-        res,
-        "⏰ Horarios Plaza Cotorreo\n\nEstamos listos para atenderte. Si necesitas un horario especial, escríbenos. 😊\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
-      );
+      await sendWatiMessage(from, "⏰ Horarios Plaza Cotorreo\n\nEstamos listos para atenderte. Si necesitas un horario especial, escríbenos. 😊\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal");
+      return res.sendStatus(200);
     }
 
     if (text === "4") {
       userState[from] = "PLAZA_UBICACION";
-      return sendResponse(
-        res,
-        "📍 Ubicación Plaza Cotorreo\n\nTe compartimos la ubicación exacta: https://maps.app.goo.gl/9GcpyAffmQFQU61u9\n¡Te esperamos! 🙌\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
-      );
+      await sendWatiMessage(from, "📍 Ubicación Plaza Cotorreo\n\nTe compartimos la ubicación exacta: https://maps.app.goo.gl/9GcpyAffmQFQU61u9\n¡Te esperamos! 🙌\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal");
+      return res.sendStatus(200);
     }
 
     if (text === "5") {
@@ -814,35 +848,34 @@ app.post("/whatsapp", (req, res) => {
         "ej: Planta Baja, Planta Alta",
         "PLAZA_MENU"
       );
-      return sendResponse(
-        res,
-        `¡Genial! Reservemos en ${draft.location}.\nNombre para la reserva:`
-      );
+      await sendWatiMessage(from, `¡Genial! Reservemos en ${draft.location}.\nNombre para la reserva:`);
+      return res.sendStatus(200);
     }
 
     if (text === "6") {
       userState[from] = "PLAZA_PAQUETES";
-      return sendResponse(
-        res,
-        "🎈 Paquetes para fiestas Plaza Cotorreo\n\n" +
+      await sendWatiMessage(from, "🎈 Paquetes para fiestas Plaza Cotorreo\n\n" +
           "Mira la imagen con los paquetes aquí:\n" +
           "https://drive.google.com/open?id=11xvFT0-drZTnJl_ixFE5FOy8PS_ewnwV\n\n" +
           "Celebra con nosotros. Pregunta por opciones y precios. 🎉\n\n" +
-          "9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
-      );
+          "9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal");
+      return res.sendStatus(200);
     }
 
     if (text === "9") {
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
     if (text === "0") {
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
-    return sendResponse(res, PLAZA_MENU_TEXT);
+    await sendWatiMessage(from, PLAZA_MENU_TEXT);
+    return res.sendStatus(200);
   }
 
   // ================================
@@ -851,12 +884,14 @@ app.post("/whatsapp", (req, res) => {
   if (userState[from] === "PLAZA_MENU_CATEGORIES") {
     if (text === "9") {
       userState[from] = "PLAZA_MENU";
-      return sendResponse(res, PLAZA_MENU_TEXT);
+      await sendWatiMessage(from, PLAZA_MENU_TEXT);
+      return res.sendStatus(200);
     }
 
     if (text === "0") {
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
     const choice = parseInt(text, 10);
@@ -865,11 +900,13 @@ app.post("/whatsapp", (req, res) => {
       if (category) {
         userState[from] = category.key;
         getUserMeta(from).lastCategory = category.key;
-        return sendResponse(res, getCategoryText(category.key, getUserCart(from).length > 0));
+        await sendWatiMessage(from, getCategoryText(category.key, getUserCart(from).length > 0));
+        return res.sendStatus(200);
       }
     }
 
-    return sendResponse(res, getPlazaCategoriesText());
+    await sendWatiMessage(from, getPlazaCategoriesText());
+    return res.sendStatus(200);
   }
 
   // ================================
@@ -878,23 +915,27 @@ app.post("/whatsapp", (req, res) => {
   if (userState[from].startsWith("CAT_")) {
     if (text === "carrito" && getUserCart(from).length > 0) {
       userState[from] = "VIEW_CART";
-      return sendResponse(res, getCartText(getUserCart(from)));
+      await sendWatiMessage(from, getCartText(getUserCart(from)));
+      return res.sendStatus(200);
     }
 
     if (text === "9") {
       userState[from] = "PLAZA_MENU_CATEGORIES";
-      return sendResponse(res, getPlazaCategoriesText());
+      await sendWatiMessage(from, getPlazaCategoriesText());
+      return res.sendStatus(200);
     }
 
     if (text === "0") {
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
     const category = getCategoryByKey(userState[from]);
     if (!category) {
       userState[from] = "PLAZA_MENU_CATEGORIES";
-      return sendResponse(res, getPlazaCategoriesText());
+      await sendWatiMessage(from, getPlazaCategoriesText());
+      return res.sendStatus(200);
     }
 
     const itemNumber = parseInt(text, 10);
@@ -905,20 +946,19 @@ app.post("/whatsapp", (req, res) => {
       addItemToCart(cart, item);
       userState[from] = "CART_ACTION";
       getUserMeta(from).lastCategory = category.key;
-      return sendResponse(
-        res,
-        "¡Listo! Agregamos a tu carrito:\n" +
+      await sendWatiMessage(from, "¡Listo! Agregamos a tu carrito:\n" +
           `${item.name} - ${formatCRC(item.price)}\n\n` +
           "⚠️ El costo mencionado no incluye Express y empaque.\n\n" +
           "1 Seguir viendo el menú\n" +
           "2 Ver carrito\n" +
           "3 Pagar ahora\n" +
           "9 Volver al menú anterior\n" +
-          "0 Volver al menú principal"
-      );
+          "0 Volver al menú principal");
+      return res.sendStatus(200);
     }
 
-    return sendResponse(res, getCategoryText(category.key, getUserCart(from).length > 0));
+    await sendWatiMessage(from, getCategoryText(category.key, getUserCart(from).length > 0));
+    return res.sendStatus(200);
   }
 
   // ================================
@@ -927,12 +967,14 @@ app.post("/whatsapp", (req, res) => {
   if (userState[from] === "CART_ACTION") {
     if (text === "1") {
       userState[from] = "PLAZA_MENU_CATEGORIES";
-      return sendResponse(res, getPlazaCategoriesText());
+      await sendWatiMessage(from, getPlazaCategoriesText());
+      return res.sendStatus(200);
     }
 
     if (text === "2") {
       userState[from] = "VIEW_CART";
-      return sendResponse(res, getCartText(getUserCart(from)));
+      await sendWatiMessage(from, getCartText(getUserCart(from)));
+      return res.sendStatus(200);
     }
 
     if (text === "3") {
@@ -942,26 +984,25 @@ app.post("/whatsapp", (req, res) => {
       meta.orderPayment = null;
       meta.orderFlowOrigin = "CART_ACTION";
       userState[from] = "ORDER_DELIVERY";
-      return sendResponse(
-        res,
-        "¿Como deseas recibir tu pedido?\n1 🚚 Express\n2 🏪 Recoger en restaurante\n\n9 Volver al menú anterior\n0 Volver al menú principal"
-      );
+      await sendWatiMessage(from, "¿Como deseas recibir tu pedido?\n1 🚚 Express\n2 🏪 Recoger en restaurante\n\n9 Volver al menú anterior\n0 Volver al menú principal");
+      return res.sendStatus(200);
     }
 
     if (text === "9") {
       userState[from] = "PLAZA_MENU_CATEGORIES";
-      return sendResponse(res, getPlazaCategoriesText());
+      await sendWatiMessage(from, getPlazaCategoriesText());
+      return res.sendStatus(200);
     }
 
     if (text === "0") {
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
-    return sendResponse(
-      res,
-      "¿Qué deseas hacer ahora?\n1 Seguir viendo el menú\n2 Ver carrito\n3 Pagar ahora\n9 Volver al menú anterior\n0 Volver al menú principal"
-    );
+    await sendWatiMessage(from, "¿Qué deseas hacer ahora?\n1 Seguir viendo el menú\n2 Ver carrito\n3 Pagar ahora\n9 Volver al menú anterior\n0 Volver al menú principal");
+
+    return res.sendStatus(200);
   }
 
   // ================================
@@ -976,28 +1017,30 @@ app.post("/whatsapp", (req, res) => {
       meta.orderPayment = null;
       meta.orderFlowOrigin = "VIEW_CART";
       userState[from] = "ORDER_DELIVERY";
-      return sendResponse(
-        res,
-        "¿Como deseas recibir tu pedido?\n1 🚚 Express\n2 🏪 Recoger en restaurante\n\n9 Volver al menú anterior\n0 Volver al menú principal"
-      );
+      await sendWatiMessage(from, "¿Como deseas recibir tu pedido?\n1 🚚 Express\n2 🏪 Recoger en restaurante\n\n9 Volver al menú anterior\n0 Volver al menú principal");
+      return res.sendStatus(200);
     }
 
     if (text === "2") {
       cart.length = 0;
-      return sendResponse(res, "Listo, tu carrito quedó en cero. ¿Te muestro el menú? 😋\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal");
+      await sendWatiMessage(from, "Listo, tu carrito quedó en cero. ¿Te muestro el menú? 😋\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal");
+      return res.sendStatus(200);
     }
 
     if (text === "9") {
       userState[from] = "PLAZA_MENU_CATEGORIES";
-      return sendResponse(res, getPlazaCategoriesText());
+      await sendWatiMessage(from, getPlazaCategoriesText());
+      return res.sendStatus(200);
     }
 
     if (text === "0") {
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
-    return sendResponse(res, getCartText(cart));
+    await sendWatiMessage(from, getCartText(cart));
+    return res.sendStatus(200);
   }
 
   // ================================
@@ -1008,80 +1051,76 @@ app.post("/whatsapp", (req, res) => {
       const origin = getUserMeta(from).orderFlowOrigin;
       if (origin === "CART_ACTION") {
         userState[from] = "CART_ACTION";
-        return sendResponse(
-          res,
-          "¿Qué deseas hacer ahora?\n1 Seguir viendo el menú\n2 Ver carrito\n3 Pagar ahora\n9 Volver al menú anterior\n0 Volver al menú principal"
-        );
+        await sendWatiMessage(from, "¿Qué deseas hacer ahora?\n1 Seguir viendo el menú\n2 Ver carrito\n3 Pagar ahora\n9 Volver al menú anterior\n0 Volver al menú principal");
+        return res.sendStatus(200);
       }
       userState[from] = "VIEW_CART";
-      return sendResponse(res, getCartText(getUserCart(from)));
+      await sendWatiMessage(from, getCartText(getUserCart(from)));
+      return res.sendStatus(200);
     }
 
     if (text === "0") {
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
     if (text === "1" || text === "express") {
       getUserMeta(from).orderDelivery = "Express";
       userState[from] = "ORDER_PAYMENT";
-      return sendResponse(
-        res,
-        "¿Metodo de pago?\n1 💵 Efectivo\n2 💳 Tarjeta\n3 📲 SINPE\n\n9 Volver al menú anterior\n0 Volver al menú principal"
-      );
+      await sendWatiMessage(from, "¿Metodo de pago?\n1 💵 Efectivo\n2 💳 Tarjeta\n3 📲 SINPE\n\n9 Volver al menú anterior\n0 Volver al menú principal");
+      return res.sendStatus(200);
     }
 
     if (text === "2" || text === "recoger" || text === "retiro") {
       getUserMeta(from).orderDelivery = "Recoger en restaurante";
       userState[from] = "ORDER_PAYMENT";
-      return sendResponse(
-        res,
-        "¿Metodo de pago?\n1 💵 Efectivo\n2 💳 Tarjeta\n3 📲 SINPE\n\n9 Volver al menú anterior\n0 Volver al menú principal"
-      );
+      await sendWatiMessage(from, "¿Metodo de pago?\n1 💵 Efectivo\n2 💳 Tarjeta\n3 📲 SINPE\n\n9 Volver al menú anterior\n0 Volver al menú principal");
+      return res.sendStatus(200);
     }
 
-    return sendResponse(
-      res,
-      "Por favor elige una opcion:\n1 🚚 Express\n2 🏪 Recoger en restaurante\n\n9 Volver al menú anterior\n0 Volver al menú principal"
-    );
+    await sendWatiMessage(from, "Por favor elige una opcion:\n1 🚚 Express\n2 🏪 Recoger en restaurante\n\n9 Volver al menú anterior\n0 Volver al menú principal");
+
+    return res.sendStatus(200);
   }
 
   if (userState[from] === "ORDER_PAYMENT") {
     if (text === "9") {
       userState[from] = "ORDER_DELIVERY";
-      return sendResponse(
-        res,
-        "¿Como deseas recibir tu pedido?\n1 🚚 Express\n2 🏪 Recoger en restaurante\n\n9 Volver al menú anterior\n0 Volver al menú principal"
-      );
+      await sendWatiMessage(from, "¿Como deseas recibir tu pedido?\n1 🚚 Express\n2 🏪 Recoger en restaurante\n\n9 Volver al menú anterior\n0 Volver al menú principal");
+      return res.sendStatus(200);
     }
 
     if (text === "0") {
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
     if (text === "1" || text === "efectivo") {
       getUserMeta(from).orderPayment = "Efectivo";
       userState[from] = "CHECKOUT";
-      return sendResponse(res, getCheckoutText(from, getUserCart(from)));
+      await sendWatiMessage(from, getCheckoutText(from, getUserCart(from)));
+      return res.sendStatus(200);
     }
 
     if (text === "2" || text === "tarjeta") {
       getUserMeta(from).orderPayment = "Tarjeta";
       userState[from] = "CHECKOUT";
-      return sendResponse(res, getCheckoutText(from, getUserCart(from)));
+      await sendWatiMessage(from, getCheckoutText(from, getUserCart(from)));
+      return res.sendStatus(200);
     }
 
     if (text === "3" || text === "sinpe") {
       getUserMeta(from).orderPayment = "SINPE";
       userState[from] = "CHECKOUT";
-      return sendResponse(res, getCheckoutText(from, getUserCart(from)));
+      await sendWatiMessage(from, getCheckoutText(from, getUserCart(from)));
+      return res.sendStatus(200);
     }
 
-    return sendResponse(
-      res,
-      "Por favor elige una opcion:\n1 💵 Efectivo\n2 💳 Tarjeta\n3 📲 SINPE\n\n9 Volver al menú anterior\n0 Volver al menú principal"
-    );
+    await sendWatiMessage(from, "Por favor elige una opcion:\n1 💵 Efectivo\n2 💳 Tarjeta\n3 📲 SINPE\n\n9 Volver al menú anterior\n0 Volver al menú principal");
+
+    return res.sendStatus(200);
   }
 
   // ================================
@@ -1104,31 +1143,30 @@ app.post("/whatsapp", (req, res) => {
         : "";
       cart.length = 0;
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(
-        res,
-        `¡Pedido confirmado${profile.name ? `, ${profile.name}` : ""}! 🙌${summaryText}\nEl costo mencionado no incluye Express y empaque.\nGracias por elegirnos. En breve te contactamos para coordinar.\n\n9 Volver al menú anterior\n0 Volver al menú principal`
-      );
+      await sendWatiMessage(from, `¡Pedido confirmado${profile.name ? `, ${profile.name}` : ""}! 🙌${summaryText}\nEl costo mencionado no incluye Express y empaque.\nGracias por elegirnos. En breve te contactamos para coordinar.\n\n9 Volver al menú anterior\n0 Volver al menú principal`);
+      return res.sendStatus(200);
     }
 
     if (text === "2") {
       userState[from] = "VIEW_CART";
-      return sendResponse(res, getCartText(cart));
+      await sendWatiMessage(from, getCartText(cart));
+      return res.sendStatus(200);
     }
 
     if (text === "9") {
       userState[from] = "ORDER_PAYMENT";
-      return sendResponse(
-        res,
-        "¿Metodo de pago?\n1 💵 Efectivo\n2 💳 Tarjeta\n3 📲 SINPE\n\n9 Volver al menú anterior\n0 Volver al menú principal"
-      );
+      await sendWatiMessage(from, "¿Metodo de pago?\n1 💵 Efectivo\n2 💳 Tarjeta\n3 📲 SINPE\n\n9 Volver al menú anterior\n0 Volver al menú principal");
+      return res.sendStatus(200);
     }
 
     if (text === "0") {
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
-    return sendResponse(res, getCheckoutText(from, cart));
+    await sendWatiMessage(from, getCheckoutText(from, cart));
+    return res.sendStatus(200);
   }
 
   // ================================
@@ -1144,36 +1182,33 @@ app.post("/whatsapp", (req, res) => {
         "ej: singles, dobles",
         "ALPADEL_MENU"
       );
-      return sendResponse(
-        res,
-        `¡Perfecto! Reservemos en ${draft.location}.\nNombre para la reserva:`
-      );
+      await sendWatiMessage(from, `¡Perfecto! Reservemos en ${draft.location}.\nNombre para la reserva:`);
+      return res.sendStatus(200);
     }
 
     if (text === "2") {
-      return sendResponse(
-        res,
-        `Reserva en Playtomic aquí:\n${PLAYTOMIC_LINK}\n\n` +
+      await sendWatiMessage(from, `Reserva en Playtomic aquí:\n${PLAYTOMIC_LINK}\n\n` +
           "Si quieres reservar con nosotros, responde 1.\n\n" +
           "9️⃣ Volver al menú anterior\n" +
-          "0️⃣ Volver al menú principal"
-      );
+          "0️⃣ Volver al menú principal");
+      return res.sendStatus(200);
     }
 
     if (text === "9") {
       userState[from] = "ALPADEL_MENU";
-      return sendResponse(res, ALPADEL_MENU_TEXT);
+      await sendWatiMessage(from, ALPADEL_MENU_TEXT);
+      return res.sendStatus(200);
     }
 
     if (text === "0") {
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
-    return sendResponse(
-      res,
-      "¿Cómo quieres reservar?\n1 ✅ Reservar con nosotros\n2 🌐 Reservar por Playtomic\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
-    );
+    await sendWatiMessage(from, "¿Cómo quieres reservar?\n1 ✅ Reservar con nosotros\n2 🌐 Reservar por Playtomic\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal");
+
+    return res.sendStatus(200);
   }
 
   // ================================
@@ -1181,26 +1216,27 @@ app.post("/whatsapp", (req, res) => {
   // ================================
   if (userState[from] === "RESERVA_NOMBRE") {
     if (text === "9") {
-      return sendResponse(res, getReservationExitText(from, profile));
+      await sendWatiMessage(from, getReservationExitText(from, profile));
+      return res.sendStatus(200);
     }
 
     if (text === "0") {
       clearReservationDraft(from);
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
     if (!rawText) {
-      return sendResponse(res, "Nombre para la reserva:");
+      await sendWatiMessage(from, "Nombre para la reserva:");
+      return res.sendStatus(200);
     }
 
     const draft = getReservationDraft(from);
     draft.name = rawText;
     userState[from] = "RESERVA_TIPO";
-    return sendResponse(
-      res,
-      `¡Genial! Reservemos en ${draft.location}.\n${draft.kindLabel} (${draft.kindExample}):`
-    );
+    await sendWatiMessage(from, `¡Genial! Reservemos en ${draft.location}.\n${draft.kindLabel} (${draft.kindExample}):`);
+    return res.sendStatus(200);
   }
 
   // ================================
@@ -1208,105 +1244,121 @@ app.post("/whatsapp", (req, res) => {
   // ================================
   if (userState[from] === "RESERVA_TIPO") {
     if (text === "9") {
-      return sendResponse(res, getReservationExitText(from, profile));
+      await sendWatiMessage(from, getReservationExitText(from, profile));
+      return res.sendStatus(200);
     }
 
     if (text === "0") {
       clearReservationDraft(from);
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
     const draft = getReservationDraft(from);
     if (!rawText) {
-      return sendResponse(
-        res,
-        `¡Genial! Reservemos en ${draft.location}.\n${draft.kindLabel} (${draft.kindExample}):`
-      );
+      await sendWatiMessage(from, `¡Genial! Reservemos en ${draft.location}.\n${draft.kindLabel} (${draft.kindExample}):`);
+      return res.sendStatus(200);
     }
 
     draft.type = rawText;
     userState[from] = "RESERVA_PERSONAS";
-    return sendResponse(res, "¿Para cuántas personas es la reserva? 👥");
+    await sendWatiMessage(from, "¿Para cuántas personas es la reserva? 👥");
+    return res.sendStatus(200);
   }
 
   if (userState[from] === "RESERVA_PERSONAS") {
     if (text === "9") {
-      return sendResponse(res, getReservationExitText(from, profile));
+      await sendWatiMessage(from, getReservationExitText(from, profile));
+      return res.sendStatus(200);
     }
 
     if (text === "0") {
       clearReservationDraft(from);
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
     const count = parseInt(text, 10);
     if (Number.isNaN(count) || count < 1 || count > 20) {
-      return sendResponse(res, "Por favor ingresa un número válido (1-20).");
+      await sendWatiMessage(from, "Por favor ingresa un número válido (1-20).");
+      return res.sendStatus(200);
     }
 
     const draft = getReservationDraft(from);
     draft.people = count;
     userState[from] = "RESERVA_FECHA";
-    return sendResponse(res, "¿Qué fecha prefieres? 📅 (ej: 15 de diciembre)");
+    await sendWatiMessage(from, "¿Qué fecha prefieres? 📅 (ej: 15 de diciembre)");
+    return res.sendStatus(200);
   }
 
   if (userState[from] === "RESERVA_FECHA") {
     if (text === "9") {
-      return sendResponse(res, getReservationExitText(from, profile));
+      await sendWatiMessage(from, getReservationExitText(from, profile));
+      return res.sendStatus(200);
     }
 
     if (text === "0") {
       clearReservationDraft(from);
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
     if (!rawText) {
-      return sendResponse(res, "¿Qué fecha prefieres? 📅 (ej: 15 de diciembre)");
+      await sendWatiMessage(from, "¿Qué fecha prefieres? 📅 (ej: 15 de diciembre)");
+      return res.sendStatus(200);
     }
 
     const draft = getReservationDraft(from);
     draft.date = rawText;
     userState[from] = "RESERVA_HORA";
-    return sendResponse(res, "¿A qué hora? ⏰ (ej: 7:00 PM)");
+    await sendWatiMessage(from, "¿A qué hora? ⏰ (ej: 7:00 PM)");
+    return res.sendStatus(200);
   }
 
   if (userState[from] === "RESERVA_HORA") {
     if (text === "9") {
-      return sendResponse(res, getReservationExitText(from, profile));
+      await sendWatiMessage(from, getReservationExitText(from, profile));
+      return res.sendStatus(200);
     }
 
     if (text === "0") {
       clearReservationDraft(from);
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
     if (!rawText) {
-      return sendResponse(res, "¿A qué hora? ⏰ (ej: 7:00 PM)");
+      await sendWatiMessage(from, "¿A qué hora? ⏰ (ej: 7:00 PM)");
+      return res.sendStatus(200);
     }
 
     const draft = getReservationDraft(from);
     draft.time = rawText;
     userState[from] = "RESERVA_TELEFONO";
-    return sendResponse(res, "Teléfono de contacto para confirmar: 📱");
+    await sendWatiMessage(from, "Teléfono de contacto para confirmar: 📱");
+    return res.sendStatus(200);
   }
 
   if (userState[from] === "RESERVA_TELEFONO") {
     if (text === "9") {
-      return sendResponse(res, getReservationExitText(from, profile));
+      await sendWatiMessage(from, getReservationExitText(from, profile));
+      return res.sendStatus(200);
     }
 
     if (text === "0") {
       clearReservationDraft(from);
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
     if (!rawText) {
-      return sendResponse(res, "Teléfono de contacto para confirmar: 📱");
+      await sendWatiMessage(from, "Teléfono de contacto para confirmar: 📱");
+      return res.sendStatus(200);
     }
 
     const draft = getReservationDraft(from);
@@ -1318,10 +1370,9 @@ app.post("/whatsapp", (req, res) => {
       name: draft.name
     });
 
-    return sendResponse(
-      res,
-      "Por favor confirma tu reserva: ✅\n\n" + summary + "\n\n1 Confirmar\n2 Cancelar"
-    );
+    await sendWatiMessage(from, "Por favor confirma tu reserva: ✅\n\n" + summary + "\n\n1 Confirmar\n2 Cancelar");
+
+    return res.sendStatus(200);
   }
 
   if (userState[from] === "RESERVA_CONFIRMAR") {
@@ -1342,21 +1393,21 @@ app.post("/whatsapp", (req, res) => {
       };
       clearReservationDraft(from);
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(
-        res,
-        `¡Reserva confirmada${reservationName ? `, ${reservationName}` : ""}! 🎉\nGracias por elegirnos.\nNúmero: ${reservationId}\n\n9 Volver al menú anterior\n0 Volver al menú principal`
-      );
+      await sendWatiMessage(from, `¡Reserva confirmada${reservationName ? `, ${reservationName}` : ""}! 🎉\nGracias por elegirnos.\nNúmero: ${reservationId}\n\n9 Volver al menú anterior\n0 Volver al menú principal`);
+      return res.sendStatus(200);
     }
 
     if (text === "2" || text === "9") {
       const exitText = getReservationExitText(from, profile);
-      return sendResponse(res, "Reserva cancelada. Si deseas, podemos agendar otra. 🙌\n\n" + exitText);
+      await sendWatiMessage(from, "Reserva cancelada. Si deseas, podemos agendar otra. 🙌\n\n" + exitText);
+      return res.sendStatus(200);
     }
 
     if (text === "0") {
       clearReservationDraft(from);
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
     const draft = getReservationDraft(from);
@@ -1364,10 +1415,8 @@ app.post("/whatsapp", (req, res) => {
       ...draft,
       name: draft.name
     });
-    return sendResponse(
-      res,
-      "Por favor confirma tu reserva: ✅\n\n" + summary + "\n\n1 Confirmar\n2 Cancelar"
-    );
+    await sendWatiMessage(from, "Por favor confirma tu reserva: ✅\n\n" + summary + "\n\n1 Confirmar\n2 Cancelar");
+    return res.sendStatus(200);
   }
 
   // ================================
@@ -1376,15 +1425,18 @@ app.post("/whatsapp", (req, res) => {
   if (userState[from] === "VIEW_RESERVATIONS") {
     if (text === "9") {
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
     if (text === "0") {
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
-    return sendResponse(res, getReservationDetailsText(getUserReservation(from)));
+    await sendWatiMessage(from, getReservationDetailsText(getUserReservation(from)));
+    return res.sendStatus(200);
   }
 
   // ================================
@@ -1395,7 +1447,8 @@ app.post("/whatsapp", (req, res) => {
     text === "9"
   ) {
     userState[from] = "PLAZA_MENU";
-    return sendResponse(res, PLAZA_MENU_TEXT);
+    await sendWatiMessage(from, PLAZA_MENU_TEXT);
+    return res.sendStatus(200);
   }
 
   // ================================
@@ -1404,9 +1457,7 @@ app.post("/whatsapp", (req, res) => {
   if (userState[from] === "ALPADEL_MENU") {
     if (text === "1") {
       userState[from] = "ALPADEL_PRECIOS";
-      return sendResponse(
-        res,
-        `💰 Precios Alpadel
+      await sendWatiMessage(from, `💰 Precios Alpadel
 
 🕖 7am – 3pm
 • Dobles: ₡6.000
@@ -1421,40 +1472,34 @@ app.post("/whatsapp", (req, res) => {
 📌 Para reservar, vuelve y elige “Reservar”.
 
 9️⃣ Volver al menú anterior
-0️⃣ Volver al menú principal`
-      );
+0️⃣ Volver al menú principal`);
+      return res.sendStatus(200);
     }
 
     if (text === "2") {
       userState[from] = "ALPADEL_RESERVA_OPCION";
-      return sendResponse(
-        res,
-        "¿Cómo quieres reservar? 🎾\n\n" +
+      await sendWatiMessage(from, "¿Cómo quieres reservar? 🎾\n\n" +
           "1 ✅ Reservar con nosotros\n" +
           "2 🌐 Reservar por Playtomic\n\n" +
           "9️⃣ Volver al menú anterior\n" +
-          "0️⃣ Volver al menú principal"
-      );
+          "0️⃣ Volver al menú principal");
+      return res.sendStatus(200);
     }
 
     if (text === "3") {
       userState[from] = "ALPADEL_CLASES";
-      return sendResponse(
-        res,
-        "🎾 Clases de pádel con Fran Sanchez\n\n" +
+      await sendWatiMessage(from, "🎾 Clases de pádel con Fran Sanchez\n\n" +
           "Lleva tu juego al siguiente nivel con nuestro único entrenador: Fran Sanchez. 💪\n" +
           "Escríbele directo y agenda tu clase:\n\n" +
           "📲 WhatsApp: https://wa.me/50671316051\n" +
           "📞 Teléfono: 7131 6051\n\n" +
-          "9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
-      );
+          "9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal");
+      return res.sendStatus(200);
     }
 
     if (text === "4") {
       userState[from] = "ALPADEL_PROMOCIONES";
-      return sendResponse(
-        res,
-        "🎾 Promociones en Alpadel\n\n" +
+      await sendWatiMessage(from, "🎾 Promociones en Alpadel\n\n" +
           "🎂 Cumpleañero del mes\n" +
           "• El cumpleañero juega GRATIS durante su mes\n" +
           "• Presenta identificación\n\n" +
@@ -1469,33 +1514,34 @@ app.post("/whatsapp", (req, res) => {
           "👨‍👩‍👧‍👦 Domingo familiar o de amigos\n" +
           "• ₡6,000 todo el día\n" +
           "• Sin importar la hora\n\n" +
-          "9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
-      );
+          "9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal");
+      return res.sendStatus(200);
     }
 
     if (text === "5") {
       userState[from] = "ALPADEL_PAQUETES";
-      return sendResponse(
-        res,
-        "🎈 Paquetes para fiestas Alpadel\n\n" +
+      await sendWatiMessage(from, "🎈 Paquetes para fiestas Alpadel\n\n" +
           "Mira la imagen con los paquetes aquí:\n" +
           "https://drive.google.com/open?id=11xvFT0-drZTnJl_ixFE5FOy8PS_ewnwV\n\n" +
           "Arma tu evento con cancha incluida. Consúltanos. 🎉\n\n" +
-          "9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
-      );
+          "9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal");
+      return res.sendStatus(200);
     }
 
     if (text === "9") {
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
     if (text === "0") {
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
-    return sendResponse(res, ALPADEL_MENU_TEXT);
+    await sendWatiMessage(from, ALPADEL_MENU_TEXT);
+    return res.sendStatus(200);
   }
 
   // ================================
@@ -1506,7 +1552,8 @@ app.post("/whatsapp", (req, res) => {
     text === "9"
   ) {
     userState[from] = "ALPADEL_MENU";
-    return sendResponse(res, ALPADEL_MENU_TEXT);
+    await sendWatiMessage(from, ALPADEL_MENU_TEXT);
+    return res.sendStatus(200);
   }
 
   // ================================
@@ -1515,22 +1562,26 @@ app.post("/whatsapp", (req, res) => {
   if (userState[from] === "ASESOR") {
     if (text === "9") {
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
     if (text === "0") {
       userState[from] = "MENU_PRINCIPAL";
-      return sendResponse(res, getMenuPrincipalText(profile.name));
+      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      return res.sendStatus(200);
     }
 
-    return sendResponse(res, ASESOR_TEXT);
+    await sendWatiMessage(from, ASESOR_TEXT);
+    return res.sendStatus(200);
   }
 
   // ================================
   // FALLBACK ABSOLUTO
   // ================================
   userState[from] = "MENU_PRINCIPAL";
-  return sendResponse(res, getMenuPrincipalText(profile.name));
+  await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+  return res.sendStatus(200);
 });
 
 // ================================
@@ -1540,4 +1591,7 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("Servidor WhatsApp activo en puerto " + PORT);
 });
+
+
+
 
