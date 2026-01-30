@@ -569,8 +569,11 @@ async function sendWatiMessage(to, message) {
   const endpoint = `${baseEndpoint}/${tenantId}/api/v1/sendSessionMessage/${whatsappNumber}`;
 
   const payload = {
-    messageText: finalMessage
-  };
+  message: {
+    text: finalMessage
+  }
+};
+
 
   try {
     const response = await fetch(endpoint, {
