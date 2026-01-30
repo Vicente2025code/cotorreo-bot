@@ -653,6 +653,7 @@ async function sendWatiMessage(to, message) {
   };
 
   try {
+    console.log("SENDING to WATI:", { to, endpoint });
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
@@ -661,7 +662,8 @@ async function sendWatiMessage(to, message) {
       },
       body: JSON.stringify(payload)
     });
-    console.log("WATI status:", response.status);
+    const textResp = await response.text().catch(() => "");
+    console.log("WATI status:", response.status, "body:", textResp);
   } catch (error) {
     console.log("WATI error:", error?.message || error);
   }
@@ -671,6 +673,7 @@ async function sendWatiMessage(to, message) {
 // WEBHOOK WHATSAPP
 // ================================
 app.post("/whatsapp", async (req, res) => {
+  console.log("INCOMING /whatsapp body:", JSON.stringify(req.body));
   const eventType = req.body?.eventType;
   const from = req.body.waId;
   const rawText = (req.body.text || "").trim();
