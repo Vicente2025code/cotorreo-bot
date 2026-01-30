@@ -544,21 +544,20 @@ function getCheckoutText(from, cart) {
 // ================================
 async function sendWatiMessage(to, message) {
   const token = process.env.WATI_TOKEN;
-  const baseEndpoint =
-    process.env.WATI_ENDPOINT ||
-    "https://live-mt-server.wati.io/1085608/api/v1/sendSessionMessage";
-  const whatsappNumber = String(to).replace(/\D/g, "");
-  const endpoint = `${baseEndpoint}/${whatsappNumber}`;
+  const baseUrl = process.env.WATI_ENDPOINT;
+  const tenantId = "1085608";
 
-  if (!token) {
-    console.log("⚠️ WATI_TOKEN no configurado. No se enviará mensaje.");
+  if (!token || !baseUrl) {
+    console.log("❌ Falta WATI_TOKEN o WATI_ENDPOINT");
     return;
   }
+
+  const whatsappNumber = String(to).replace(/\D/g, "");
+  const endpoint = `${baseUrl}/${tenantId}/api/v1/sendSessionMessage/${whatsappNumber}`;
 
   const payload = {
     messageText: message
   };
-
 
   try {
     const response = await fetch(endpoint, {
@@ -570,10 +569,12 @@ async function sendWatiMessage(to, message) {
       body: JSON.stringify(payload)
     });
 
-    const text = await response.text().catch(() => "");
-    console.log("WATI status:", response.status, text ? `| body: ${text}` : "");
-  } catch (error) {
-    console.log("WATI error:", error?.message || error);
+    console.log("📡 WATI status:", response.status);
+    const text = await response.text();
+    console.log("📡 WATI response:", text);
+
+  } catch (err) {
+    console.error("❌ Error enviando mensaje a WATI:", err);
   }
 }
 
