@@ -578,7 +578,7 @@ const payload = new URLSearchParams({
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
-        Authorization: Bearer ${token},
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: payload.toString(),
