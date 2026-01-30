@@ -544,23 +544,40 @@ function getCheckoutText(from, cart) {
 // ================================
 async function sendWatiMessage(to, message) {
   const token = process.env.WATI_TOKEN;
-  const baseUrl = process.env.WATI_ENDPOINT;
+  const endpoint = process.env.WATI_ENDPOINT;
   const tenantId = "1085608";
 
-  if (!token || !baseUrl) {
-    console.log("❌ Falta WATI_TOKEN o WATI_ENDPOINT");
+  const safeMessage = (message === undefined || message === null) ? "" : String(message);
+  const trimmed = safeMessage.trim();
+
+  console.log("🧪 sendWatiMessage debug:", {
+    to,
+    messageType: typeof message,
+    length: safeMessage.length,
+    trimmedLength: trimmed.length,
+    preview: trimmed.slice(0, 80)
+  });
+
+  const finalMessage = trimmed.length ? trimmed : "✅ TEST: el bot está vivo (fallback por texto vacío).";
+
+  if (!token) {
+    console.log("⚠️ WATI_TOKEN no configurado. No se enviará mensaje.");
+    return;
+  }
+  if (!endpoint) {
+    console.log("⚠️ WATI_ENDPOINT no configurado. No se enviará mensaje.");
     return;
   }
 
   const whatsappNumber = String(to).replace(/\D/g, "");
-  const endpoint = `${baseUrl}/${tenantId}/api/v1/sendSessionMessage/${whatsappNumber}`;
+  const fullEndpoint = `${endpoint}/${tenantId}/api/v1/sendSessionMessage/${whatsappNumber}`;
 
   const payload = {
-    messageText: message
+    messageText: finalMessage
   };
 
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetch(fullEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
