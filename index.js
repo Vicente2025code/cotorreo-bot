@@ -544,9 +544,11 @@ function getCheckoutText(from, cart) {
 // ================================
 async function sendWatiMessage(to, message) {
   const token = process.env.WATI_TOKEN;
-  const endpoint =
+  const baseEndpoint =
     process.env.WATI_ENDPOINT ||
     "https://live-mt-server.wati.io/1085608/api/v1/sendSessionMessage";
+  const whatsappNumber = String(to).replace(/\D/g, "");
+  const endpoint = `${baseEndpoint}/${whatsappNumber}`;
 
   if (!token) {
     console.log("⚠️ WATI_TOKEN no configurado. No se enviará mensaje.");
@@ -554,9 +556,8 @@ async function sendWatiMessage(to, message) {
   }
 
   const payload = {
-  whatsappNumber: String(to).replace(/\D/g, ""),
-  messageText: message
-};
+    messageText: message
+  };
 
 
   try {
