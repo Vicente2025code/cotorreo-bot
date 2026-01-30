@@ -568,11 +568,7 @@ async function sendWatiMessage(to, message) {
   // ✅ Endpoint correcto: incluye tenantId y whatsappNumber
   const endpoint = `${baseEndpoint}/${tenantId}/api/v1/sendSessionMessage/${whatsappNumber}`;
 
-  const payload = {
-  message: {
-    text: finalMessage
-  }
-};
+ const payload = { messageText: finalMessage };
 
 
   try {
