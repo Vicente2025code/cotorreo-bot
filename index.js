@@ -543,57 +543,54 @@ function getCheckoutText(from, cart) {
 // ENVIO MENSAJES WATI
 // ================================
 async function sendWatiMessage(to, message) {
-  const token = process.env.WATI_TOKEN;
-  const endpoint = process.env.WATI_ENDPOINT;
+  const token = process.env.WATI_TOKEN;          // SOLO el token (sin "Bearer")
+  const baseEndpoint = process.env.WATI_ENDPOINT; // Ej: https://live-mt-server.wati.io
   const tenantId = "1085608";
 
-  const safeMessage = (message === undefined || message === null) ? "" : String(message);
-  const trimmed = safeMessage.trim();
-
-  console.log("🧪 sendWatiMessage debug:", {
-    to,
-    messageType: typeof message,
-    length: safeMessage.length,
-    trimmedLength: trimmed.length,
-    preview: trimmed.slice(0, 80)
-  });
-
-  const finalMessage = trimmed.length ? trimmed : "✅ TEST: el bot está vivo (fallback por texto vacío).";
-
+  // Validaciones duras
   if (!token) {
     console.log("⚠️ WATI_TOKEN no configurado. No se enviará mensaje.");
     return;
   }
-  if (!endpoint) {
+  if (!baseEndpoint) {
     console.log("⚠️ WATI_ENDPOINT no configurado. No se enviará mensaje.");
     return;
   }
 
+  // Normalizar número: deja solo dígitos (ej: 50663038030)
   const whatsappNumber = String(to).replace(/\D/g, "");
-  const fullEndpoint = `${endpoint}/${tenantId}/api/v1/sendSessionMessage/${whatsappNumber}`;
+
+  // Mensaje seguro (evita undefined / vacío)
+  const safeMessage = (message === undefined || message === null) ? "" : String(message);
+  const trimmed = safeMessage.trim();
+  const finalMessage = trimmed.length ? trimmed : "👋 Hola! ¿En qué te puedo ayudar?";
+
+  // ✅ Endpoint correcto: incluye tenantId y whatsappNumber
+  const endpoint = `${baseEndpoint}/${tenantId}/api/v1/sendSessionMessage/${whatsappNumber}`;
 
   const payload = {
     messageText: finalMessage
   };
 
   try {
-    const response = await fetch(fullEndpoint, {
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
       },
       body: JSON.stringify(payload)
     });
 
-    console.log("📡 WATI status:", response.status);
     const text = await response.text();
-    console.log("📡 WATI response:", text);
 
+    console.log("📨 WATI status:", response.status);
+    console.log("📨 WATI response:", text);
   } catch (err) {
-    console.error("❌ Error enviando mensaje a WATI:", err);
+    console.log("❌ Error enviando a WATI:", err?.message || err);
   }
 }
+
 
 // ================================
 // NORMALIZACIÓN PAYLOAD WATI (OBLIGATORIO)
