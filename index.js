@@ -1499,7 +1499,13 @@ app.post("/whatsapp", async (req, res) => {
     // FALLBACK ABSOLUTO
     // ================================
     userState[from] = "MENU_PRINCIPAL";
-    await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+    let messageText = getMenuPrincipalText(profile.name);
+
+    if (!messageText || !messageText.trim()) {
+      messageText = "✅ TEST FINAL: el bot recibe y envía mensajes correctamente.";
+    }
+
+    await sendWatiMessage(from, messageText);
     return res.sendStatus(200);
 
   } catch (err) {
