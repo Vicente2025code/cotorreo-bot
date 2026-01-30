@@ -568,20 +568,20 @@ async function sendWatiMessage(to, message) {
   // ✅ Endpoint correcto: incluye tenantId y whatsappNumber
   const endpoint = `${baseEndpoint}/${tenantId}/api/v1/sendSessionMessage/${whatsappNumber}`;
 
-const payload = {
-    messageText: "TEST WATI 123",
-    channelPhoneNumber: "50683436583", // tu número WATI en formato internacional, sin +
-  };
+const payload = new URLSearchParams({
+    messageText: finalMessage,
+    channelPhoneNumber: "50683436583",
+  });
 
 
   try {
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
+        Authorization: Bearer ${token},
+        "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: JSON.stringify(payload)
+      body: payload.toString(),
     });
 
     const text = await response.text();
