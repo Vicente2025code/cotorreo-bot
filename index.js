@@ -568,7 +568,10 @@ async function sendWatiMessage(to, message) {
   // ✅ Endpoint correcto: incluye tenantId y whatsappNumber
   const endpoint = `${baseEndpoint}/${tenantId}/api/v1/sendSessionMessage/${whatsappNumber}`;
 
- const payload = { messageText: "TEST WATI 123" };
+const payload = {
+    messageText: "TEST WATI 123",
+    channelPhoneNumber: "50683436583", // tu número WATI en formato internacional, sin +
+  };
 
 
   try {
