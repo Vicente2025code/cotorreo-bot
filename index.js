@@ -554,9 +554,10 @@ async function sendWatiMessage(to, message) {
   }
 
   const payload = {
-    whatsappNumber: to,
-    messageText: message
-  };
+  whatsappNumber: String(to).replace(/\D/g, ""),
+  messageText: message
+};
+
 
   try {
     const response = await fetch(endpoint, {
