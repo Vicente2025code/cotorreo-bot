@@ -665,7 +665,7 @@ app.post("/whatsapp", async (req, res) => {
     // Eventos de asignación/cierre (si tu WATI los manda así)
     if (eventType === "chat_assigned") {
       handoff.active = true;
-      handoff.until = Date.now();
+      handoff.until = 0;
       handoff.notified = true;
       return res.sendStatus(200);
     }
