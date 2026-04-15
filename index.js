@@ -4,7 +4,6 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const fetch = global.fetch || require("node-fetch");
-const { getSimpleAIReply } = require("./services/aiFallbackService");
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -724,30 +723,6 @@ app.post("/whatsapp", async (req, res) => {
       return res.sendStatus(200);
     }
 
-    const hasHumanHandoff = isHandoffActive(from);
-    const hasActiveFlow = hasActiveUserFlow(userState[from], profile);
-    const matchedFlowIntent = matchesCurrentFlowIntent(text);
-    const routeDecision = routeMessage(text, hasHumanHandoff, hasActiveFlow, matchedFlowIntent);
-
-    if (routeDecision.route === "human") {
-      return res.sendStatus(200);
-    }
-
-    if (routeDecision.route === "candidate_for_ai") {
-      try {
-        console.log("AI candidate:", rawText);
-
-        const aiReply = await getSimpleAIReply(rawText);
-
-        await sendWatiMessage(from, aiReply);
-      } catch (error) {
-        console.error("AI error:", error.message);
-
-        await sendWatiMessage(from, "No entendí del todo tu mensaje 🤔\n\n¿Qué te gustaría hacer?\n\n1️⃣ 🍽️ Comer en Plaza Cotorreo\n2️⃣ 🎾 Jugar pádel en Alpadel\n3️⃣ 👤 Hablar con un asesor");
-      }
-      return res.sendStatus(200);
-    }
-
     // ================================
     // ONBOARDING NOMBRE
     // ================================
@@ -766,6 +741,20 @@ app.post("/whatsapp", async (req, res) => {
     if (!profile.name) {
       userState[from] = "ASK_NAME";
       await sendWatiMessage(from, getNamePrompt());
+      return res.sendStatus(200);
+    }
+
+    const hasHumanHandoff = isHandoffActive(from);
+    const hasActiveFlow = hasActiveUserFlow(userState[from], profile);
+    const matchedFlowIntent = matchesCurrentFlowIntent(text);
+    const routeDecision = routeMessage(text, hasHumanHandoff, hasActiveFlow, matchedFlowIntent);
+
+    if (routeDecision.route === "human") {
+      return res.sendStatus(200);
+    }
+
+    if (routeDecision.route === "candidate_for_ai") {
+      await sendWatiMessage(from, "No entendí del todo tu mensaje 🤔\n\n¿Qué te gustaría hacer?\n\n1️⃣ 🍽️ Comer en Plaza Cotorreo\n2️⃣ 🎾 Jugar pádel en Alpadel\n3️⃣ 👤 Hablar con un asesor");
       return res.sendStatus(200);
     }
 
