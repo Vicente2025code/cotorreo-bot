@@ -13,6 +13,7 @@
   "dependencies": {
     "body-parser": "^2.2.2",
     "express": "^5.2.1",
+    "openai": "^6.34.0",
     "twilio": "^5.11.2"
   }
 }
