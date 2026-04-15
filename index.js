@@ -127,7 +127,7 @@ function isHandoffActive(from) {
 
 function routeMessage(messageText, hasHumanHandoff, hasActiveFlow, matchedFlowIntent) {
   if (hasHumanHandoff) return { route: "human" };
-  if (hasActiveFlow) return { route: "flow" };
+  if (hasActiveFlow && matchedFlowIntent) return { route: "flow" };
   if (matchedFlowIntent) return { route: "flow" };
   return { route: "candidate_for_ai" };
 }
