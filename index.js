@@ -4,6 +4,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const fetch = global.fetch || require("node-fetch");
+const { getSimpleAIReply } = require("./services/aiFallbackService");
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -754,9 +755,23 @@ app.post("/whatsapp", async (req, res) => {
     }
 
     if (routeDecision.route === "candidate_for_ai") {
-      console.log("AI candidate:", text);
-      await sendWatiMessage(from, "No entendí del todo tu mensaje 🤔\n\n¿Qué te gustaría hacer?\n\n1️⃣ 🍽️ Comer en Plaza Cotorreo\n2️⃣ 🎾 Jugar pádel en Alpadel\n3️⃣ 👤 Hablar con un asesor");
-      return res.sendStatus(200);
+      try {
+        console.log("AI candidate:", text);
+
+        const aiReply = await getSimpleAIReply(text);
+
+        await sendWatiMessage(from, aiReply);
+
+        return res.sendStatus(200);
+      } catch (error) {
+        console.error("AI error:", error.message);
+
+        await sendWatiMessage(from,
+          "No entendí del todo tu mensaje 🤔\n\n¿Qué te gustaría hacer?\n\n1️⃣ 🍽️ Comer en Plaza Cotorreo\n2️⃣ 🎾 Jugar pádel en Alpadel\n3️⃣ 👤 Hablar con un asesor"
+        );
+
+        return res.sendStatus(200);
+      }
     }
 
     // ================================
