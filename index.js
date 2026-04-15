@@ -138,22 +138,16 @@ function hasActiveUserFlow(state, profile) {
 }
 
 function matchesCurrentFlowIntent(text) {
-  if (!text) return true;
-  return [
-    "menu",
-    "menú",
-    "inicio",
-    "hola",
-    "0",
-    "1",
-    "2",
-    "3",
-    "4",
-    "9",
-    "asesor",
-    "carrito",
-    "reservas"
-  ].includes(text);
+  const normalizedText = (text || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[¡!¿?]/g, "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if (!normalizedText) return false;
+
+  return /^(0|1|2|3|4|5|6|9|menu|pedido|orden|reservar|reserva|asesor|plaza|alpadel)$/.test(normalizedText);
 }
 
 function getMenuPrincipalText(name) {
