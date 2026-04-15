@@ -734,7 +734,7 @@ app.post("/whatsapp", async (req, res) => {
 
     if (routeDecision.route === "candidate_for_ai") {
       console.log("AI candidate:", rawText.trim());
-      await sendWatiMessage(from, "No entendí del todo tu mensaje. Te puedo ayudar con: 1. Plaza 2. Alpadel 3. Hablar con un asesor");
+      await sendWatiMessage(from, "No entendí del todo tu mensaje 🤔\n\n¿Qué te gustaría hacer?\n\n1️⃣ 🍽️ Comer en Plaza Cotorreo\n2️⃣ 🎾 Jugar pádel en Alpadel\n3️⃣ 👤 Hablar con un asesor");
       return res.sendStatus(200);
     }
 
