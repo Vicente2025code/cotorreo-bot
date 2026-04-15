@@ -125,6 +125,37 @@ function isHandoffActive(from) {
   return true;
 }
 
+function routeMessage(messageText, hasHumanHandoff, hasActiveFlow, matchedFlowIntent) {
+  if (hasHumanHandoff) return { route: "human" };
+  if (hasActiveFlow) return { route: "flow" };
+  if (matchedFlowIntent) return { route: "flow" };
+  return { route: "candidate_for_ai" };
+}
+
+function hasActiveUserFlow(state, profile) {
+  if (!profile?.name) return true;
+  return state !== "MENU_PRINCIPAL";
+}
+
+function matchesCurrentFlowIntent(text) {
+  if (!text) return true;
+  return [
+    "menu",
+    "menú",
+    "inicio",
+    "hola",
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "9",
+    "asesor",
+    "carrito",
+    "reservas"
+  ].includes(text);
+}
+
 function getMenuPrincipalText(name) {
   if (!name) return MENU_PRINCIPAL_TEXT;
   return MENU_PRINCIPAL_TEXT.replace(
@@ -698,7 +729,20 @@ app.post("/whatsapp", async (req, res) => {
       return res.sendStatus(200);
     }
 
-    if (isHandoffActive(from)) return res.sendStatus(200);
+    const hasHumanHandoff = isHandoffActive(from);
+    const hasActiveFlow = hasActiveUserFlow(userState[from], profile);
+    const matchedFlowIntent = matchesCurrentFlowIntent(text);
+    const routeDecision = routeMessage(text, hasHumanHandoff, hasActiveFlow, matchedFlowIntent);
+
+    if (routeDecision.route === "human") {
+      return res.sendStatus(200);
+    }
+
+    if (routeDecision.route === "candidate_for_ai") {
+      console.log("AI candidate:", rawText.trim());
+      await sendWatiMessage(from, "No entendí del todo tu mensaje. Te puedo ayudar con: 1. Plaza 2. Alpadel 3. Hablar con un asesor");
+      return res.sendStatus(200);
+    }
 
     // ================================
     // ONBOARDING NOMBRE
