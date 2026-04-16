@@ -151,6 +151,40 @@ function matchesCurrentFlowIntent(text) {
   return /^(0|1|2|3|4|5|6|9|menu|pedido|orden|reservar|reserva|asesor|plaza|alpadel)$/.test(normalizedText);
 }
 
+function containsBlockedAIIntent(text) {
+  const normalizedText = (text || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[¡!¿?]/g, "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  return [
+    "reservar",
+    "reserva",
+    "cancha",
+    "padel",
+    "horario",
+    "horarios",
+    "precio",
+    "precios",
+    "cuanto cuesta",
+    "clases",
+    "entrenador",
+    "profesor",
+    "asesor",
+    "humano",
+    "hablar con una persona",
+    "quiero hablar con una persona",
+    "hablar con alguien",
+    "quiero hablar con alguien",
+    "quiero hablar con un asesor",
+    "menu",
+    "promociones",
+    "ubicacion"
+  ].some((intent) => normalizedText.includes(intent));
+}
+
 function getMenuPrincipalText(name) {
   if (!name) return MENU_PRINCIPAL_TEXT;
   return MENU_PRINCIPAL_TEXT.replace(
@@ -751,6 +785,11 @@ app.post("/whatsapp", async (req, res) => {
     const routeDecision = routeMessage(text, hasHumanHandoff, hasActiveFlow, matchedFlowIntent);
 
     if (routeDecision.route === "human") {
+      return res.sendStatus(200);
+    }
+
+    if (routeDecision.route === "candidate_for_ai" && containsBlockedAIIntent(text)) {
+      await sendWatiMessage(from, "Para ayudarte con información exacta, por favor elige una opción del menú 👇\n\n1️⃣ 🍽️ Comer en Plaza Cotorreo\n2️⃣ 🎾 Jugar pádel en Alpadel\n3️⃣ 👤 Hablar con un asesor");
       return res.sendStatus(200);
     }
 
