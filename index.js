@@ -788,12 +788,12 @@ app.post("/whatsapp", async (req, res) => {
       return res.sendStatus(200);
     }
 
-    if (routeDecision.route === "candidate_for_ai" && containsBlockedAIIntent(text)) {
+    if (routeDecision.route === "candidate_for_ai" && !hasActiveFlow && containsBlockedAIIntent(text)) {
       await sendWatiMessage(from, "Para ayudarte con información exacta, por favor elige una opción del menú 👇\n\n1️⃣ 🍽️ Comer en Plaza Cotorreo\n2️⃣ 🎾 Jugar pádel en Alpadel\n3️⃣ 👤 Hablar con un asesor");
       return res.sendStatus(200);
     }
 
-    if (routeDecision.route === "candidate_for_ai") {
+    if (routeDecision.route === "candidate_for_ai" && !hasActiveFlow) {
       try {
         console.log("AI candidate:", text);
 
