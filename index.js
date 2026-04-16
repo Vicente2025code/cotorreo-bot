@@ -66,8 +66,8 @@ const ASESOR_TEXT = `
 👤 ¡Estamos para ayudarte! Un asesor te atenderá en un momento.
 Si prefieres, también puedes llamarnos:
 
-📞 Plaza Cotorreo: 2460-5050
-📞 Alpadel: 7131-6051
+📞 Llamadas: 63038030
+💬 WhatsApp: https://wa.me/50683436583
 
 9️⃣ Volver al menú anterior
 0️⃣ Volver al menú principal
@@ -1533,8 +1533,8 @@ app.post("/whatsapp", async (req, res) => {
         await sendWatiMessage(from, "🎾 Clases de pádel con Fran Sanchez\n\n" +
           "Lleva tu juego al siguiente nivel con nuestro único entrenador: Fran Sanchez. 💪\n" +
           "Escríbele directo y agenda tu clase:\n\n" +
-          "📲 WhatsApp: https://wa.me/50671316051\n" +
-          "📞 Teléfono: 7131 6051\n\n" +
+          "📲 WhatsApp: https://wa.me/50683436583\n" +
+          "📞 Teléfono: 63038030\n\n" +
           "9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal");
         return res.sendStatus(200);
       }
