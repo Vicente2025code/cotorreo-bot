@@ -10,7 +10,7 @@ async function getSimpleAIReply(messageText) {
   try {
     const client = new OpenAI({ apiKey });
     const response = await client.responses.create({
-      model: "gpt-5.2",
+      model: "gpt-5.4-mini",
       instructions: "Responde breve, claro y en espanol.",
       input: String(messageText || "").trim()
     });
