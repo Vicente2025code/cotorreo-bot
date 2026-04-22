@@ -223,8 +223,7 @@ async function getSimpleAIReply(messageText) {
     const response = await client.responses.create({
       model: "gpt-4o-mini",
       instructions: SYSTEM_INSTRUCTIONS,
-    input: `Fecha y hora actual: ${new Date().toLocaleDateString('es-CR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.\n\nMensaje del cliente: ${String(messageText || "").trim()}`
-    });
+input: `Hoy es ${new Date().toLocaleDateString('es-CR', { weekday: 'long' })}.\n\nMensaje del cliente: ${String(messageText || "").trim()}`    });
 
     const replyText = (response.output_text || "").trim();
 
