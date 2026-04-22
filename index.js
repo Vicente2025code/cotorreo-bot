@@ -166,7 +166,24 @@ function routeMessage(messageText, hasHumanHandoff, hasActiveFlow, matchedFlowIn
 
 function hasActiveUserFlow(state, profile) {
   if (!profile?.name) return true;
-  return state !== "MENU_PRINCIPAL";
+  if (state === "MENU_PRINCIPAL") return false;
+  // Estados donde el bot espera respuesta específica del usuario
+  const strictStates = [
+    "ASK_NAME",
+    "RESERVA_NOMBRE",
+    "RESERVA_TIPO",
+    "RESERVA_PERSONAS",
+    "RESERVA_FECHA",
+    "RESERVA_HORA",
+    "RESERVA_TELEFONO",
+    "RESERVA_CONFIRMAR",
+    "ORDER_DELIVERY",
+    "ORDER_PAYMENT",
+    "CHECKOUT",
+    "VIEW_CART",
+    "CART_ACTION"
+  ];
+  return strictStates.includes(state);
 }
 
 function matchesCurrentFlowIntent(text) {
