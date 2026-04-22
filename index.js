@@ -944,8 +944,7 @@ app.post("/whatsapp", async (req, res) => {
 
       if (text === "2") {
         userState[from] = "PLAZA_PROMOCIONES";
-        await sendWatiMessage(from, "🎉 Promociones Plaza Cotorreo\n\nAprovecha nuestras promos especiales y disfruta más por menos. 😋\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal");
-        return res.sendStatus(200);
+        await sendWatiMessage(from, "🎉 Promociones Plaza Cotorreo\n\n📅 Lunes a jueves (Plaza Cotorreo y Plaza Encuentro):\n• Lunes: 2x1 Tacos al Pastor (compra 4, lleva 8)\n• Martes: 2x1 Sushi (compra 1 rollo, lleva 2)\n• Miércoles: 2x1 Quesabirrias (compra 5, lleva 10)\n• Jueves: 3x2 Hamburguesas (compra 2, lleva 3)\n\n🍳 Desayuno + Pádel Domingo y L-V: ₡20.000\n(8am-12md, 1h cancha dobles + 4 desayunos + palas y bolas)\n\n🎾 Pádel + Bebidas L-V 4pm-10pm\n(dobles 4 bebidas / singles 2 bebidas)\n\n🌟 Glow Pádel Viernes: ₡5.000 p/p\n(1.5h juego + 1 bebida + pala, requiere reserva)\n\n🍺 Baldazo Nacional Viernes: ₡6.000\n(6 cervezas Nacional)\n\n🍽️ Almuerzo Ejecutivo L-V 11:30am-2pm: ₡3.800\n\n🏆 Cotorreo Rewards: ₡10.000 = 1 sello, 20 sellos = ₡15.000\n(primer registro: 1 bebida por mesa)\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal");        return res.sendStatus(200);
       }
 
       if (text === "3") {
