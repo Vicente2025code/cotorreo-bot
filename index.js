@@ -784,6 +784,10 @@ app.post("/whatsapp", async (req, res) => {
       return res.sendStatus(200);
     }
 
+    if (isHandoffActive(from)) {
+      return res.sendStatus(200);
+    }
+
     if (!profile.name) {
       userState[from] = "ASK_NAME";
       await sendWatiMessage(from, getNamePrompt());
