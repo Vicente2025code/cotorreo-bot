@@ -182,28 +182,18 @@ function containsBlockedAIIntent(text) {
     .replace(/[\u0300-\u036f]/g, "");
 
   return [
-    "reservar",
+   "reservar",
     "reserva",
     "cancha",
     "padel",
-    "horario",
-    "horarios",
-    "precio",
-    "precios",
-    "cuanto cuesta",
     "clases",
     "entrenador",
     "profesor",
-    "asesor",
-    "humano",
     "hablar con una persona",
     "quiero hablar con una persona",
     "hablar con alguien",
     "quiero hablar con alguien",
-    "quiero hablar con un asesor",
-    "menu",
-    "promociones",
-    "ubicacion"
+    "quiero hablar con un asesor"
   ].some((intent) => normalizedText.includes(intent));
 }
 
