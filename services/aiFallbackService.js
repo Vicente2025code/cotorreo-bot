@@ -187,7 +187,7 @@ HORARIOS
 
 Plaza Cotorreo:
 - Lunes a jueves: 11:00 am – 10:00 pm
-- Viernes y sábado: 11:00 am – 12:00 md
+- Viernes y sábado: 11:00 am – 12:00 md (medianoche)
 - Domingo: 9:00 am – 10:00 pm
 
 Alpadel (canchas de pádel):
@@ -198,6 +198,7 @@ Cotorreo Taquería (Plaza Encuentro):
 - Sábado: 11:00 am – 10:00 pm
 - Domingo: Cerrado
 
+Cuando el cliente pregunte por horarios de forma general, menciona TODOS los negocios y sus horarios completos, no solo uno.
 Promociones del restaurante aplican todo el día dentro del horario de apertura.
 
 ═══════════════════════════════
