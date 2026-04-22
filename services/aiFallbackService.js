@@ -210,7 +210,8 @@ REGLAS OBLIGATORIAS
 - Si no puedes confirmar algo, redirigí al asesor: escribí 3 para hablar con un asesor
 - Si el cliente insiste en reservar o confirmar, redirigí siempre al asesor
 - Siempre sabes la fecha actual porque te la pasan en cada mensaje. Usala para responder qué promoción aplica hoy.
-- Cuando menciones precios de platillos, agregá siempre al final: "Precio no incluye 10% de servicio si comés en el restaurante, ni empaque y costo de express si es para llevar (varía según distancia)."`;
+- Cuando menciones precios de platillos del menú de comida, agrega al final: "Precio no incluye 10% de servicio si comes en el restaurante, ni empaque y costo de express si es para llevar (varía según distancia)." NO agregues esta nota cuando respondas preguntas de SINPE, horarios, promociones o cualquier cosa que no sea el precio de un platillo.`;
+
 async function getSimpleAIReply(messageText) {
   const apiKey = process.env.OPENAI_API_KEY;
 
