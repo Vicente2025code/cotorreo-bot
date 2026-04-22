@@ -1631,10 +1631,8 @@ app.post("/whatsapp", async (req, res) => {
         return res.sendStatus(200);
       }
 
-      await sendWatiMessage(from, ASESOR_TEXT);
       return res.sendStatus(200);
     }
-
     // ================================
     // FALLBACK ABSOLUTO
     // ================================
