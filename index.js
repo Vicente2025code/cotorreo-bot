@@ -748,7 +748,6 @@ app.post("/whatsapp", async (req, res) => {
       handoff.active = true;
       handoff.until = Date.now() + HANDOFF_DURATION_MS;
       if (!wasActive) handoff.notified = false;
-      await sendWatiMessage(from, "✅ TEST: el bot ya puede enviar mensajes por WATI. Si ves esto, el problema era que estábamos mandando messageText vacío.");
       return res.sendStatus(200);
     }
 
