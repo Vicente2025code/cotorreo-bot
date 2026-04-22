@@ -10,6 +10,20 @@ const redis = new Redis({
 });
 const HANDOFF_FILE = "./handoff_state.json";
 
+
+
+// ================================
+// ESTADO GLOBAL POR USUARIO
+// ================================
+const userState = {};
+const processedMessages = {};
+const userCart = {};
+const userMeta = {};
+const userProfile = {};
+const userReservations = {};
+const userReservationDraft = {};
+const userHandoff = {};
+
 async function loadHandoffState() {
   try {
     const data = await redis.get("handoff_state");
@@ -28,18 +42,6 @@ async function saveHandoffState() {
     console.log("Error guardando handoff state:", e.message);
   }
 }
-
-// ================================
-// ESTADO GLOBAL POR USUARIO
-// ================================
-const userState = {};
-const processedMessages = {};
-const userCart = {};
-const userMeta = {};
-const userProfile = {};
-const userReservations = {};
-const userReservationDraft = {};
-const userHandoff = {};
 
 // ================================
 // TEXTOS (FÁCILES DE EDITAR)
