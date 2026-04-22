@@ -734,7 +734,7 @@ app.post("/whatsapp", async (req, res) => {
     const text = rawText.trim().toLowerCase();
 
     if (!from) return res.sendStatus(200);
-    console.log("DEBUG from:", from, "| handoff:", JSON.stringify(getUserHandoff(from)));
+   
 
     // ================================
     // INICIALIZAR ESTADO
