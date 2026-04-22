@@ -111,7 +111,7 @@ Mientras coordinamos todo, si querés te puedo recomendar algo del menú que sue
 
 Decime qué se te antoja y lo vemos juntos.`;
 
-const HANDOFF_DURATION_MS = 45 * 60 * 1000;
+const HANDOFF_DURATION_MS = 15 * 60 * 1000;
 
 function getUserProfile(from) {
   if (!userProfile[from]) {
