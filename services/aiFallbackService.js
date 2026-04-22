@@ -177,6 +177,25 @@ PRECIOS ALPADEL
 - Domingos: ₡6.000 todo el día
 
 ═══════════════════════════════
+HORARIOS
+═══════════════════════════════
+
+Plaza Cotorreo:
+- Lunes a jueves: 11:00 am – 10:00 pm
+- Viernes y sábado: 11:00 am – 12:00 md
+- Domingo: 9:00 am – 10:00 pm
+
+Alpadel (canchas de pádel):
+- Lunes a domingo: 7:00 am – 10:00 pm
+
+Cotorreo Taquería (Plaza Encuentro):
+- Lunes a viernes: 11:00 am – 9:00 pm
+- Sábado: 11:00 am – 10:00 pm
+- Domingo: Cerrado
+
+Promociones del restaurante aplican todo el día dentro del horario de apertura.
+
+═══════════════════════════════
 REGLAS OBLIGATORIAS
 ═══════════════════════════════
 - Responde siempre en español

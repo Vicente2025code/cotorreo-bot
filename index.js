@@ -915,8 +915,8 @@ app.post("/whatsapp", async (req, res) => {
       }
 
       if (text === "3") {
-        userState[from] = "PLAZA_HORARIOS";
-        await sendWatiMessage(from, "⏰ Horarios Plaza Cotorreo\n\nEstamos listos para atenderte. Si necesitas un horario especial, escríbenos. 😊\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal");
+        userState[from] = "PLAZA_HORARIOS"
+        await sendWatiMessage(from, "⏰ Horarios Plaza Cotorreo\n\n🗓️ Lunes a jueves: 11:00 am – 10:00 pm\n🗓️ Viernes y sábado: 11:00 am – 12:00 md\n🗓️ Domingo: 9:00 am – 10:00 pm\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal");
         return res.sendStatus(200);
       }
 
@@ -1531,16 +1531,19 @@ app.post("/whatsapp", async (req, res) => {
         await sendWatiMessage(from, `💰 Precios Alpadel
 
 🕖 7am – 3pm
-• Dobles: ₡6.000
-• Singles: ₡4.000
+- Dobles: ₡6.000
+- Singles: ₡4.000
 
 🕓 4pm – 10pm
-• Dobles: ₡12.000
-• Singles: ₡6.000
+- Dobles: ₡12.000
+- Singles: ₡6.000
 
 ☀️ Domingos: ₡6.000 todo el día
 
-📌 Para reservar, vuelve y elige “Reservar”.
+⏰ Horario de canchas:
+- Lunes a domingo: 7:00 am – 10:00 pm
+
+📌 Para reservar, vuelve y elige "Reservar".
 
 9️⃣ Volver al menú anterior
 0️⃣ Volver al menú principal`);
