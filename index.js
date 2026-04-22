@@ -10,6 +10,14 @@ const redis = new Redis({
 });
 const HANDOFF_FILE = "./handoff_state.json";
 
+const bodyParser = require("body-parser");
+const fetch = global.fetch || require("node-fetch");
+const { getSimpleAIReply } = require("./services/aiFallbackService");
+
+const app = express();
+app.use(express.json({ limit: "1mb" }));
+app.use(bodyParser.urlencoded({ extended: false }));
+
 
 
 // ================================
