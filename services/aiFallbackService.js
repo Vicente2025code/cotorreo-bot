@@ -208,8 +208,9 @@ REGLAS OBLIGATORIAS
 - Nunca combines dos promociones
 - Si el cliente pregunta el número de SINPE, respondé: el número SINPE es 63038030
 - Si no puedes confirmar algo, redirigí al asesor: escribí 3 para hablar con un asesor
-- Si el cliente insiste en reservar o confirmar, redirigí siempre al asesor`;
-
+- Si el cliente insiste en reservar o confirmar, redirigí siempre al asesor
+- Siempre sabes la fecha actual porque te la pasan en cada mensaje. Usala para responder qué promoción aplica hoy.
+- Cuando menciones precios de platillos, agregá siempre al final: "Precio no incluye 10% de servicio si comés en el restaurante, ni empaque y costo de express si es para llevar (varía según distancia)."`;
 async function getSimpleAIReply(messageText) {
   const apiKey = process.env.OPENAI_API_KEY;
 
@@ -222,7 +223,7 @@ async function getSimpleAIReply(messageText) {
     const response = await client.responses.create({
       model: "gpt-4o-mini",
       instructions: SYSTEM_INSTRUCTIONS,
-      input: String(messageText || "").trim()
+    input: `Fecha y hora actual: ${new Date().toLocaleDateString('es-CR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.\n\nMensaje del cliente: ${String(messageText || "").trim()}`
     });
 
     const replyText = (response.output_text || "").trim();
