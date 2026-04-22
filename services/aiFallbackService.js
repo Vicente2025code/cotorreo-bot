@@ -158,7 +158,7 @@ PROMOS LUNES A JUEVES (Plaza Cotorreo y Plaza Encuentro):
 - Miércoles: 2x1 Quesabirrias (compra 5 lleva 10)
 - Jueves: 3x2 Hamburguesas (compra 2 lleva 3)
 
-PROMOS PLAZA COTORREO:
+PROMOS PLAZA COTORREO Y ALPADEL:
 - Desayuno + Pádel Domingo: ₡20.000 (8am-12md, 1h cancha dobles + 4 desayunos seleccionados + palas y bolas sujeto a disponibilidad)
 - Desayuno + Pádel L-V: ₡20.000 (8am-12md, 1h cancha dobles + 4 desayunos seleccionados + palas y bolas sujeto a disponibilidad)
 - Pádel + Bebidas L-V 4pm-10pm: dobles 4 bebidas / singles 2 bebidas (gaseosa, cerveza nacional o Tropical)
@@ -168,6 +168,11 @@ PROMOS PLAZA COTORREO:
 - Cotorreo Rewards: ₡10.000 = 1 sello, 20 sellos = ₡15.000 crédito, primer registro = 1 bebida por mesa (gaseosa, cerveza nacional o Tropical)
 - Postre de cortesía: 1 por mesa con Rewards o redes sociales
 - Cortesía Alpadel primera vez: minutos gratis sujeto a disponibilidad
+- Cumpleañero del mes: juega gratis durante su mes (presenta identificación)
+- Empresas y colegios: 50% de descuento para grupos de 4
+- Miembros ASTEC: 20% de descuento (membresía activa)
+- Padelband gratis (sujeto a disponibilidad)
+- Domingo familiar o de amigos: ₡6.000 todo el día sin importar la hora
 
 ═══════════════════════════════
 PRECIOS ALPADEL
