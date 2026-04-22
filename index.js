@@ -767,7 +767,18 @@ app.post("/whatsapp", async (req, res) => {
         return res.sendStatus(200);
       }
 
-      profile.name = rawText.trim();
+      const nombreCandidate = rawText.trim();
+      const esPedidoOTextoLargo =
+        nombreCandidate.length > 40 ||
+        /\d{4,}/.test(nombreCandidate) ||
+        /(entregar|alistar|promo|pedido|sushi|pizza|orden|para|quiero|pueden|podrán|podr[aá]n)/i.test(nombreCandidate);
+
+      if (esPedidoOTextoLargo) {
+        await sendWatiMessage(from, "Solo necesito tu nombre para continuar 😊\n¿Cómo te llamás?");
+        return res.sendStatus(200);
+      }
+
+      profile.name = nombreCandidate;
       userState[from] = "MENU_PRINCIPAL";
       await sendWatiMessage(from, getMenuPrincipalText(profile.name));
       return res.sendStatus(200);
