@@ -301,6 +301,7 @@ function getReservationExitText(from, profile) {
 // ================================
 const PLAZA_MENU_LINK = "https://linktr.ee/elcotorreocr";
 const PLAYTOMIC_LINK = "https://playtomic.com/clubs/alpadel-club";
+const SINPE_NUMBER = "63038030";
 
 // (Categorías: las dejé idénticas a lo que pegaste)
 const PLAZA_MENU_CATEGORIES = [
