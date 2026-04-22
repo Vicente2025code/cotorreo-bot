@@ -3,12 +3,17 @@
 // ================================
 const express = require("express");
 const fs = require("fs");
+const { Redis } = require("@upstash/redis");
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
 const HANDOFF_FILE = "./handoff_state.json";
 
-function loadHandoffState() {
+async function loadHandoffState() {
   try {
-    if (fs.existsSync(HANDOFF_FILE)) {
-      const data = JSON.parse(fs.readFileSync(HANDOFF_FILE, "utf8"));
+    const data = await redis.get("handoff_state");
+    if (data) {
       Object.assign(userHandoff, data);
     }
   } catch (e) {
@@ -16,20 +21,13 @@ function loadHandoffState() {
   }
 }
 
-function saveHandoffState() {
+async function saveHandoffState() {
   try {
-    fs.writeFileSync(HANDOFF_FILE, JSON.stringify(userHandoff), "utf8");
+    await redis.set("handoff_state", JSON.stringify(userHandoff));
   } catch (e) {
     console.log("Error guardando handoff state:", e.message);
   }
 }
-const bodyParser = require("body-parser");
-const fetch = global.fetch || require("node-fetch");
-const { getSimpleAIReply } = require("./services/aiFallbackService");
-
-const app = express();
-app.use(express.json({ limit: "1mb" }));
-app.use(bodyParser.urlencoded({ extended: false }));
 
 // ================================
 // ESTADO GLOBAL POR USUARIO
@@ -1682,7 +1680,7 @@ app.get("/", (req, res) => res.send("OK"));
 // ================================
 // SERVIDOR
 // ================================
-loadHandoffState();
+loadHandoffState().catch(e => console.log("Error inicial handoff:", e.message));
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("Servidor WhatsApp activo en puerto " + PORT);
