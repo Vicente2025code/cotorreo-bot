@@ -2,6 +2,27 @@
 // DEPENDENCIAS
 // ================================
 const express = require("express");
+const fs = require("fs");
+const HANDOFF_FILE = "./handoff_state.json";
+
+function loadHandoffState() {
+  try {
+    if (fs.existsSync(HANDOFF_FILE)) {
+      const data = JSON.parse(fs.readFileSync(HANDOFF_FILE, "utf8"));
+      Object.assign(userHandoff, data);
+    }
+  } catch (e) {
+    console.log("Error cargando handoff state:", e.message);
+  }
+}
+
+function saveHandoffState() {
+  try {
+    fs.writeFileSync(HANDOFF_FILE, JSON.stringify(userHandoff), "utf8");
+  } catch (e) {
+    console.log("Error guardando handoff state:", e.message);
+  }
+}
 const bodyParser = require("body-parser");
 const fetch = global.fetch || require("node-fetch");
 const { getSimpleAIReply } = require("./services/aiFallbackService");
@@ -114,6 +135,7 @@ function clearUserHandoff(from) {
   handoff.active = false;
   handoff.until = 0;
   handoff.notified = false;
+  saveHandoffState();
 }
 
 function isHandoffActive(from) {
@@ -746,9 +768,10 @@ app.post("/whatsapp", async (req, res) => {
     // ================================
     if (text === "tomar") {
       const wasActive = isHandoffActive(from);
-      handoff.active = true;
+     handoff.active = true;
       handoff.until = Date.now() + HANDOFF_DURATION_MS;
       if (!wasActive) handoff.notified = false;
+      saveHandoffState();
       return res.sendStatus(200);
     }
 
@@ -1644,6 +1667,7 @@ app.get("/tomar/:numero", (req, res) => {
   handoff.active = true;
   handoff.until = Date.now() + HANDOFF_DURATION_MS;
   handoff.notified = false;
+  saveHandoffState();
   res.send("✅ Bot silenciado para " + numero + " por 45 minutos.");
 });
 
@@ -1657,6 +1681,7 @@ app.get("/", (req, res) => res.send("OK"));
 // ================================
 // SERVIDOR
 // ================================
+loadHandoffState();
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("Servidor WhatsApp activo en puerto " + PORT);
