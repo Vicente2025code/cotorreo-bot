@@ -35,6 +35,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 // ESTADO GLOBAL POR USUARIO
 // ================================
 const userState = {};
+const processedMessages = {};
 const userCart = {};
 const userMeta = {};
 const userProfile = {};
@@ -725,6 +726,14 @@ app.post("/whatsapp", async (req, res) => {
     const text = rawText.trim().toLowerCase();
 
     if (!from) return res.sendStatus(200);
+    const messageId = req.body?.id || req.body?.messages?.[0]?.id || null;
+    if (messageId) {
+      if (processedMessages[messageId]) {
+        return res.sendStatus(200);
+      }
+      processedMessages[messageId] = true;
+      setTimeout(() => delete processedMessages[messageId], 60000);
+    }
    
 
     // ================================
