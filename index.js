@@ -1633,6 +1633,20 @@ app.post("/whatsapp", async (req, res) => {
 });
 
 // Healthcheck útil para Render
+app.get("/tomar/:numero", (req, res) => {
+  const numero = req.params.numero;
+  const handoff = getUserHandoff(numero);
+  handoff.active = true;
+  handoff.until = Date.now() + HANDOFF_DURATION_MS;
+  handoff.notified = false;
+  res.send("✅ Bot silenciado para " + numero + " por 45 minutos.");
+});
+
+app.get("/liberar/:numero", (req, res) => {
+  const numero = req.params.numero;
+  clearUserHandoff(numero);
+  res.send("✅ Bot reactivado para " + numero);
+});
 app.get("/", (req, res) => res.send("OK"));
 
 // ================================
