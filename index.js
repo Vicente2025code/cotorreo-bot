@@ -210,8 +210,6 @@ function containsBlockedAIIntent(text) {
   return [
    "reservar",
     "reserva",
-    "cancha",
-    "padel",
     "clases",
     "entrenador",
     "profesor",
