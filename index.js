@@ -734,7 +734,7 @@ app.post("/whatsapp", async (req, res) => {
     const text = rawText.trim().toLowerCase();
 
     if (!from) return res.sendStatus(200);
-    const messageId = req.body?.id || req.body?.messages?.[0]?.id || `${from}_${rawText}_${Math.floor(Date.now() / 3000)}`;
+    const messageId = req.body?.id || req.body?.messages?.[0]?.id || `${from}_${rawText}_${Math.floor(Date.now() / 10000)}`;
     if (messageId) {
       if (processedMessages[messageId]) {
         return res.sendStatus(200);
