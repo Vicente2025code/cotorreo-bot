@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(node --check index.js)",
-      "Bash(node --check services/aiFallbackService.js)"
+      "Bash(node --check services/aiFallbackService.js)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git add *)"
     ]
   }
 }
