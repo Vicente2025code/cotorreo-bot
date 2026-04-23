@@ -1512,7 +1512,7 @@ app.post("/whatsapp", async (req, res) => {
           `💬 Cliente WhatsApp: ${from}`;
         
         await sendWatiMessage("50663038030", notificationMessage);
-        let notificationMessage = 
+        let notificationAlpadel =
           `🔔 Nueva solicitud de reserva\n\n` +
           `📍 Lugar: ${draft.location}\n` +
           `👤 Nombre: ${draft.name}\n` +
@@ -1523,7 +1523,7 @@ app.post("/whatsapp", async (req, res) => {
           `📱 Teléfono: ${draft.phone}\n` +
           `💬 Cliente WhatsApp: ${from}`;
         
-        await sendWatiMessage("50663038030", notificationMessage);
+        await sendWatiMessage("50663038030", notificationAlpadel);
         clearReservationDraft(from);
         userState[from] = "MENU_PRINCIPAL";
 
