@@ -666,7 +666,7 @@ async function isHumanInControl(phoneNumber) {
   if (!token || !baseEndpoint) return false;
 
   try {
-    const endpoint = `${baseEndpoint}/${tenantId}/api/v3/conversations/${phoneNumber}/messages?page_number=1&page_size=5`;
+    const endpoint = `${baseEndpoint}/${tenantId}/api/v1/getMessages/${phoneNumber}?pageSize=5&pageNumber=1`;
     const response = await fetch(endpoint, {
       method: "GET",
       headers: {
@@ -678,15 +678,15 @@ async function isHumanInControl(phoneNumber) {
     if (!response.ok) return false;
 
     const data = await response.json();
-    const messages = data.message_list || [];
+    const messages = data?.messages?.items || [];
 
-    // Buscar el último mensaje enviado por el bot (owner: true)
-    // Si tiene operatorName, fue enviado por un humano
     for (const msg of messages) {
       if (msg.owner === true) {
-        console.log("🔍 Mensaje revisado:", JSON.stringify(msg));
-        if (msg.operator_name && msg.operator_name !== null && msg.operator_name !== "") {
-          console.log("👤 Humano en control:", msg.operator_name);
+        const isHuman = msg.operatorName && 
+                        msg.operatorName.trim() !== "" && 
+                        !msg.operatorName.includes("API Token");
+        if (isHuman) {
+          console.log("👤 Humano en control:", msg.operatorName);
           return true;
         }
         return false;
