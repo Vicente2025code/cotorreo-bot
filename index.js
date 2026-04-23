@@ -658,6 +658,45 @@ function getCheckoutText(from, cart) {
 // ================================
 // ENVIO MENSAJES WATI
 // ================================
+async function isHumanInControl(phoneNumber) {
+  const token = process.env.WATI_TOKEN;
+  const baseEndpoint = process.env.WATI_ENDPOINT;
+  const tenantId = "1085608";
+  
+  if (!token || !baseEndpoint) return false;
+
+  try {
+    const endpoint = `${baseEndpoint}/${tenantId}/api/v3/conversations/${phoneNumber}/messages?page_number=1&page_size=5`;
+    const response = await fetch(endpoint, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      }
+    });
+
+    if (!response.ok) return false;
+
+    const data = await response.json();
+    const messages = data.message_list || [];
+
+    // Buscar el último mensaje enviado por el bot (owner: true)
+    // Si tiene operatorName, fue enviado por un humano
+    for (const msg of messages) {
+      if (msg.owner === true) {
+        if (msg.operator_name && msg.operator_name !== null && msg.operator_name !== "") {
+          console.log("👤 Humano en control:", msg.operator_name);
+          return true;
+        }
+        return false;
+      }
+    }
+    return false;
+  } catch (err) {
+    console.log("❌ Error consultando estado WATI:", err?.message);
+    return false;
+  }
+}
 async function sendWatiMessage(to, message) {
   const token = process.env.WATI_TOKEN;          // SOLO el token (sin "Bearer")
   const baseEndpoint = process.env.WATI_ENDPOINT; // Ej: https://live-mt-server.wati.io
@@ -854,6 +893,17 @@ app.post("/whatsapp", async (req, res) => {
     }
 
     if (isHandoffActive(from)) {
+      return res.sendStatus(200);
+    }
+
+    // Verificar automáticamente si un humano está en control
+    const humanInControl = await isHumanInControl(from);
+    if (humanInControl) {
+      const handoff = getUserHandoff(from);
+      handoff.active = true;
+      handoff.until = Date.now() + HANDOFF_DURATION_MS;
+      saveHandoffState();
+      console.log("🤝 Handoff activado automáticamente para:", from);
       return res.sendStatus(200);
     }
 
