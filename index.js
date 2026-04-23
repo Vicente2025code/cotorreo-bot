@@ -710,6 +710,9 @@ async function isHumanInControl(phoneNumber) {
       }
     }
     return false;
+  } catch (err) {
+    console.log("❌ Error consultando estado WATI:", err?.message);
+    return false;
   }
 }
 async function sendWatiMessage(to, message) {
