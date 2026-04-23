@@ -172,6 +172,7 @@ function hasActiveUserFlow(state, profile) {
     "ASK_NAME",
     "RESERVA_NOMBRE",
     "RESERVA_TIPO",
+    "RESERVA_DURACION",
     "RESERVA_PERSONAS",
     "RESERVA_FECHA",
     "RESERVA_HORA",
