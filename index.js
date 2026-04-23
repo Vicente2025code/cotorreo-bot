@@ -1835,6 +1835,18 @@ app.get("/liberar/:numero", async (req, res) => {
   await clearUserHandoff(numero);
   res.send("✅ Bot reactivado para " + numero);
 });
+app.get("/reset/:numero", (req, res) => {
+  const numero = req.params.numero;
+  delete userProfile[numero];
+  delete userState[numero];
+  delete userCart[numero];
+  delete userMeta[numero];
+  delete userReservations[numero];
+  delete userReservationDraft[numero];
+  clearUserHandoff(numero);
+  redis.del("user_profiles").catch(() => {});
+  res.send("✅ Perfil resetado para " + numero);
+});
 app.get("/", (req, res) => res.send("OK"));
 
 // ================================
