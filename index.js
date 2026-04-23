@@ -682,9 +682,12 @@ async function isHumanInControl(phoneNumber) {
 
     for (const msg of messages) {
       if (msg.owner === true) {
+        const messageAge = Date.now() - (parseFloat(msg.timestamp) * 1000);
+        const isRecent = messageAge < 15 * 60 * 1000; // 15 minutos
         const isHuman = msg.operatorName && 
                         msg.operatorName.trim() !== "" && 
-                        !msg.operatorName.includes("API Token");
+                        !msg.operatorName.includes("API Token") &&
+                        isRecent;
         if (isHuman) {
           console.log("👤 Humano en control:", msg.operatorName);
           return true;
