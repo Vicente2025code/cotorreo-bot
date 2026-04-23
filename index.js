@@ -1751,7 +1751,10 @@ app.get("/tomar/:numero", (req, res) => {
 app.get("/liberar/:numero", (req, res) => {
   const numero = req.params.numero;
   clearUserHandoff(numero);
-  app.get("/reset/:numero", async (req, res) => {
+  res.send("✅ Bot reactivado para " + numero);
+});
+
+app.get("/reset/:numero", async (req, res) => {
   const numero = req.params.numero;
   delete userProfile[numero];
   delete userState[numero];
@@ -1762,8 +1765,6 @@ app.get("/liberar/:numero", (req, res) => {
   await clearUserHandoff(numero);
   redis.del("user_profiles").catch(() => {});
   res.send("✅ Perfil resetado para " + numero);
-});
-  res.send("✅ Bot reactivado para " + numero);
 });
 app.get("/", (req, res) => res.send("OK"));
 
