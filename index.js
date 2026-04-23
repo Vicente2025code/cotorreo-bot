@@ -662,7 +662,7 @@ async function isHumanInControl(phoneNumber) {
   const token = process.env.WATI_TOKEN;
   const baseEndpoint = process.env.WATI_ENDPOINT;
   const tenantId = "1085608";
-  
+  console.log("🔎 Consultando estado WATI para:", phoneNumber);
   if (!token || !baseEndpoint) return false;
 
   try {
