@@ -231,7 +231,7 @@ async function getSimpleAIReply(messageText) {
       model: "gpt-4o-mini",
       instructions: SYSTEM_INSTRUCTIONS,
 input: `Hoy es ${new Date().toLocaleDateString('es-CR', { weekday: 'long', timeZone: 'America/Costa_Rica' })}.\n\nMensaje del cliente: ${String(messageText || "").trim()}`
-    const replyText = (response.output_text || "").trim();
+    });    const replyText = (response.output_text || "").trim();
 
     if (!replyText) {
       throw new Error("OpenAI returned an empty text response.");
