@@ -275,6 +275,7 @@ function getReservationSummary(reservation) {
   if (reservation.id) reply += `Número de reserva: ${reservation.id}\n`;
   reply += `Nombre: ${reservation.name || ""}\n`;
   reply += `${reservation.kindLabel}: ${reservation.type}\n`;
+  if (reservation.duration) reply += `Duración: ${reservation.duration}\n`;
   reply += `Personas: ${reservation.people}\n`;
   reply += `Fecha: ${reservation.date}\n`;
   reply += `Hora: ${reservation.time}\n`;
@@ -1374,11 +1375,40 @@ app.post("/whatsapp", async (req, res) => {
       }
 
       draft.type = rawText.trim();
+      
+      if (draft.location === "Alpadel") {
+        userState[from] = "RESERVA_DURACION";
+        await sendWatiMessage(from, "¿Cuánto tiempo quieres la cancha? ⏱️ (ej: 1 hora, 1.5 horas, 2 horas)");
+      } else {
+        userState[from] = "RESERVA_PERSONAS";
+        await sendWatiMessage(from, "¿Para cuántas personas es la reserva? 👥");
+      }
+      return res.sendStatus(200);
+    }
+if (userState[from] === "RESERVA_DURACION") {
+      if (text === "9") {
+        await sendWatiMessage(from, getReservationExitText(from, profile));
+        return res.sendStatus(200);
+      }
+
+      if (text === "0") {
+        clearReservationDraft(from);
+        userState[from] = "MENU_PRINCIPAL";
+        await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+        return res.sendStatus(200);
+      }
+
+      if (!rawText.trim()) {
+        await sendWatiMessage(from, "¿Cuánto tiempo quieres la cancha? ⏱️ (ej: 1 hora, 1.5 horas, 2 horas)");
+        return res.sendStatus(200);
+      }
+
+      const draft = getReservationDraft(from);
+      draft.duration = rawText.trim();
       userState[from] = "RESERVA_PERSONAS";
       await sendWatiMessage(from, "¿Para cuántas personas es la reserva? 👥");
       return res.sendStatus(200);
     }
-
     if (userState[from] === "RESERVA_PERSONAS") {
       if (text === "9") {
         await sendWatiMessage(from, getReservationExitText(from, profile));
@@ -1530,7 +1560,8 @@ app.post("/whatsapp", async (req, res) => {
         const who = reservationName ? `, ${reservationName}` : "";
         await sendWatiMessage(
           from,
-`✅ ¡Gracias${who}! Recibimos tu solicitud de reserva.\nUn asesor te contactará pronto para confirmar disponibilidad.\nNúmero de solicitud: ${reservationId}\n\n9 Volver al menú anterior\n0 Volver al menú principal`        );
+          `¡Reserva confirmada${who}! 🎉\nGracias por elegirnos.\nNúmero: ${reservationId}\n\n9 Volver al menú anterior\n0 Volver al menú principal`
+        );
         return res.sendStatus(200);
       }
 
