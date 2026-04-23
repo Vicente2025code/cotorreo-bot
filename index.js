@@ -226,7 +226,7 @@ function matchesCurrentFlowIntent(text) {
 
   if (!normalizedText) return false;
 
-  return /^(0|1|2|3|4|5|6|9|menu|pedido|orden|reservar|reserva|asesor|plaza|alpadel)$/.test(normalizedText);
+  return /^(0|1|2|3|4|5|6|9|menu|hola|inicio|pedido|orden|reservar|reserva|asesor|plaza|alpadel)$/.test(normalizedText);
 }
 
 function containsBlockedAIIntent(text) {
@@ -692,33 +692,20 @@ async function isHumanInControl(phoneNumber) {
     const data = await response.json();
     const messages = data?.messages?.items || [];
 
-   // Buscar el mensaje más reciente del cliente (owner: false)
-    // y verificar si después hay un mensaje de humano (owner: true, no API Token)
-    let foundClientMessage = false;
-    
+    const cutoffMs = Date.now() - HANDOFF_DURATION_MS;
+
     for (const msg of messages) {
-      if (msg.owner === false) {
-        // Este es el mensaje del cliente — ya encontramos el punto de referencia
-        foundClientMessage = true;
-        continue;
-      }
-      
-      if (msg.owner === true && foundClientMessage) {
-        // Este mensaje del agente es ANTERIOR al mensaje del cliente
-        // Si es humano, estaba atendiendo antes — no cuenta
-        break;
-      }
-      
-      if (msg.owner === true && !foundClientMessage) {
-        // Este mensaje del agente es POSTERIOR al mensaje del cliente
-        const isHuman = msg.operatorName && 
-                        msg.operatorName.trim() !== "" && 
-                        !msg.operatorName.includes("API Token");
-        if (isHuman) {
-          console.log("👤 Humano en control:", msg.operatorName);
-          return true;
-        }
-        return false;
+      if (msg.owner !== true) continue;
+
+      const isHuman = msg.operatorName &&
+                      msg.operatorName.trim() !== "" &&
+                      !msg.operatorName.includes("API Token");
+      if (!isHuman) continue;
+
+      const msgTs = Number(msg.timestamp) * 1000;
+      if (msgTs >= cutoffMs) {
+        console.log("👤 Humano en control:", msg.operatorName);
+        return true;
       }
     }
     return false;
