@@ -1500,7 +1500,7 @@ app.post("/whatsapp", async (req, res) => {
           name: draft.name
         };
 
-        const notificationMessage = 
+        let notificationMessage = 
           `🔔 Nueva solicitud de reserva\n\n` +
           `📍 Lugar: ${draft.location}\n` +
           `👤 Nombre: ${draft.name}\n` +
