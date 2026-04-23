@@ -1561,8 +1561,7 @@ if (userState[from] === "RESERVA_DURACION") {
         const who = reservationName ? `, ${reservationName}` : "";
         await sendWatiMessage(
           from,
-          `¡Reserva confirmada${who}! 🎉\nGracias por elegirnos.\nNúmero: ${reservationId}\n\n9 Volver al menú anterior\n0 Volver al menú principal`
-        );
+`✅ ¡Gracias${who}! Recibimos tu solicitud de reserva.\nUn asesor te contactará pronto para confirmar disponibilidad.\nNúmero de solicitud: ${reservationId}\n\n9 Volver al menú anterior\n0 Volver al menú principal`        );
         return res.sendStatus(200);
       }
 
