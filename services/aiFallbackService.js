@@ -227,11 +227,18 @@ async function getSimpleAIReply(messageText) {
 
   try {
     const client = new OpenAI({ apiKey });
-    const response = await client.responses.create({
-      model: "gpt-4o-mini",
-      instructions: SYSTEM_INSTRUCTIONS,
-input: `Hoy es ${new Date().toLocaleDateString('es-CR', { weekday: 'long', timeZone: 'America/Costa_Rica' })}.\n\nMensaje del cliente: ${String(messageText || "").trim()}`
-    });    const replyText = (response.output_text || "").trim();
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("OpenAI timeout after 8000ms")), 8000)
+    );
+    const response = await Promise.race([
+      client.responses.create({
+        model: "gpt-4o-mini",
+        instructions: SYSTEM_INSTRUCTIONS,
+        input: `Hoy es ${new Date().toLocaleDateString('es-CR', { weekday: 'long', timeZone: 'America/Costa_Rica' })}.\n\nMensaje del cliente: ${String(messageText || "").trim()}`
+      }),
+      timeoutPromise
+    ]);
+    const replyText = (response.output_text || "").trim();
 
     if (!replyText) {
       throw new Error("OpenAI returned an empty text response.");

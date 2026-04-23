@@ -24,7 +24,6 @@ app.use(bodyParser.urlencoded({ extended: false }));
 // ESTADO GLOBAL POR USUARIO
 // ================================
 const userState = {};
-const processedMessages = {};
 const userCart = {};
 const userMeta = {};
 const userProfile = {};
@@ -156,12 +155,12 @@ function getUserHandoff(from) {
   return userHandoff[from];
 }
 
-function clearUserHandoff(from) {
+async function clearUserHandoff(from) {
   const handoff = getUserHandoff(from);
   handoff.active = false;
   handoff.until = 0;
   handoff.notified = false;
-  saveHandoffState();
+  await saveHandoffState();
 }
 
 function isHandoffActive(from) {
@@ -169,6 +168,19 @@ function isHandoffActive(from) {
   if (!handoff.active) return false;
   if (handoff.until && Date.now() > handoff.until) {
     clearUserHandoff(from);
+    return false;
+  }
+  return true;
+}
+
+async function canBotRespond(from) {
+  if (isHandoffActive(from)) return false;
+  const humanInControl = await isHumanInControl(from);
+  if (humanInControl) {
+    const handoff = getUserHandoff(from);
+    handoff.active = true;
+    handoff.until = Date.now() + HANDOFF_DURATION_MS;
+    await saveHandoffState();
     return false;
   }
   return true;
@@ -712,7 +724,7 @@ async function isHumanInControl(phoneNumber) {
     return false;
   } catch (err) {
     console.log("❌ Error consultando estado WATI:", err?.message);
-    return false;
+    return true;
   }
 }
 async function sendWatiMessage(to, message) {
@@ -819,6 +831,7 @@ function normalizeWatiPayload(body) {
 // WEBHOOK WHATSAPP (WATI)
 // ================================
 app.post("/whatsapp", async (req, res) => {
+  let lockKey = null;
   // Regla: WATI debe recibir 200 siempre.
   try {
     const { eventType, from, rawText } = normalizeWatiPayload(req.body);
@@ -826,14 +839,16 @@ app.post("/whatsapp", async (req, res) => {
 
     if (!from) return res.sendStatus(200);
     const messageId = req.body?.id || req.body?.messages?.[0]?.id || `${from}_${rawText}_${Math.floor(Date.now() / 10000)}`;
-    if (messageId) {
-      if (processedMessages[messageId]) {
-        return res.sendStatus(200);
-      }
-      processedMessages[messageId] = true;
-      setTimeout(() => delete processedMessages[messageId], 60000);
+    const dedupKey = `dedup:${messageId}`;
+    const isNew = await redis.set(dedupKey, "1", { nx: true, ex: 120 });
+    if (!isNew) return res.sendStatus(200);
+
+    lockKey = `lock:${from}`;
+    const lockAcquired = await redis.set(lockKey, "1", { nx: true, ex: 15 });
+    if (!lockAcquired) {
+      lockKey = null;
+      return res.sendStatus(200);
     }
-   
 
     // ================================
     // INICIALIZAR ESTADO
@@ -853,7 +868,7 @@ app.post("/whatsapp", async (req, res) => {
     }
 
     if (eventType === "chat_closed" || eventType === "chat_unassigned") {
-      clearUserHandoff(from);
+      await clearUserHandoff(from);
       return res.sendStatus(200);
     }
 
@@ -875,17 +890,20 @@ app.post("/whatsapp", async (req, res) => {
     }
 
     if (text === "/liberar" || text === "liberar") {
-      clearUserHandoff(from);
+      await clearUserHandoff(from);
       await sendWatiMessage(from, "✅ Bot reactivado.");
       return res.sendStatus(200);
     }
 
     // ================================
+    // GUARD CENTRAL
+    // ================================
+    const allowed = await canBotRespond(from);
+    if (!allowed) return res.sendStatus(200);
+
+    // ================================
     // ONBOARDING NOMBRE
     // ================================
-    if (isHandoffActive(from)) {
-      return res.sendStatus(200);
-    }
     if (userState[from] === "ASK_NAME") {
       if (!rawText || isGlobalCommand(text)) {
         await sendWatiMessage(from, getNamePrompt());
@@ -907,21 +925,6 @@ app.post("/whatsapp", async (req, res) => {
       saveUserProfiles();
       userState[from] = "MENU_PRINCIPAL";
       await sendWatiMessage(from, getMenuPrincipalText(profile.name));
-      return res.sendStatus(200);
-    }
-
-    if (isHandoffActive(from)) {
-      return res.sendStatus(200);
-    }
-
-    // Verificar automáticamente si un humano está en control
-    const humanInControl = await isHumanInControl(from);
-    if (humanInControl) {
-      const handoff = getUserHandoff(from);
-      handoff.active = true;
-      handoff.until = Date.now() + HANDOFF_DURATION_MS;
-      saveHandoffState();
-      console.log("🤝 Handoff activado automáticamente para:", from);
       return res.sendStatus(200);
     }
 
@@ -1632,18 +1635,6 @@ if (userState[from] === "RESERVA_DURACION") {
           `💬 Cliente WhatsApp: ${from}`;
         
         await sendWatiMessage("50663038030", notificationMessage);
-        let notificationAlpadel =
-          `🔔 Nueva solicitud de reserva\n\n` +
-          `📍 Lugar: ${draft.location}\n` +
-          `👤 Nombre: ${draft.name}\n` +
-          `${draft.kindLabel}: ${draft.type}\n` +
-          `👥 Personas: ${draft.people}\n` +
-          `📅 Fecha: ${draft.date}\n` +
-          `⏰ Hora: ${draft.time}\n` +
-          `📱 Teléfono: ${draft.phone}\n` +
-          `💬 Cliente WhatsApp: ${from}`;
-        
-        
         clearReservationDraft(from);
         userState[from] = "MENU_PRINCIPAL";
 
@@ -1823,6 +1814,8 @@ if (userState[from] === "RESERVA_DURACION") {
   } catch (err) {
     console.log("❌ Error en webhook /whatsapp:", err?.stack || err);
     return res.sendStatus(200);
+  } finally {
+    if (lockKey) await redis.del(lockKey);
   }
 });
 
@@ -1837,9 +1830,9 @@ app.get("/tomar/:numero", (req, res) => {
   res.send("✅ Bot silenciado para " + numero + " por 15 minutos.");
 });
 
-app.get("/liberar/:numero", (req, res) => {
+app.get("/liberar/:numero", async (req, res) => {
   const numero = req.params.numero;
-  clearUserHandoff(numero);
+  await clearUserHandoff(numero);
   res.send("✅ Bot reactivado para " + numero);
 });
 app.get("/", (req, res) => res.send("OK"));
