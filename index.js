@@ -834,6 +834,11 @@ app.post("/whatsapp", async (req, res) => {
   let lockKey = null;
   // Regla: WATI debe recibir 200 siempre.
   try {
+    // ================================
+    // LOG DE DIAGNÓSTICO — quitar cuando ya no se necesite
+    // ================================
+    console.log("📥 WATI PAYLOAD:", JSON.stringify(req.body, null, 2));
+
     const { eventType, from, rawText } = normalizeWatiPayload(req.body);
     const text = rawText.trim().toLowerCase();
 
