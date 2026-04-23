@@ -684,6 +684,7 @@ async function isHumanInControl(phoneNumber) {
     // Si tiene operatorName, fue enviado por un humano
     for (const msg of messages) {
       if (msg.owner === true) {
+        console.log("🔍 Mensaje revisado:", JSON.stringify(msg));
         if (msg.operator_name && msg.operator_name !== null && msg.operator_name !== "") {
           console.log("👤 Humano en control:", msg.operator_name);
           return true;
