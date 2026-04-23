@@ -50,7 +50,24 @@ async function saveHandoffState() {
     console.log("Error guardando handoff state:", e.message);
   }
 }
+async function saveUserProfiles() {
+  try {
+    await redis.set("user_profiles", JSON.stringify(userProfile));
+  } catch (e) {
+    console.log("Error guardando perfiles:", e.message);
+  }
+}
 
+async function loadUserProfiles() {
+  try {
+    const data = await redis.get("user_profiles");
+    if (data) {
+      Object.assign(userProfile, typeof data === "string" ? JSON.parse(data) : data);
+    }
+  } catch (e) {
+    console.log("Error cargando perfiles:", e.message);
+  }
+}
 // ================================
 // TEXTOS (FÁCILES DE EDITAR)
 // ================================
@@ -809,6 +826,9 @@ app.post("/whatsapp", async (req, res) => {
     // ================================
     // ONBOARDING NOMBRE
     // ================================
+    if (isHandoffActive(from)) {
+      return res.sendStatus(200);
+    }
     if (userState[from] === "ASK_NAME") {
       if (!rawText || isGlobalCommand(text)) {
         await sendWatiMessage(from, getNamePrompt());
@@ -827,6 +847,7 @@ app.post("/whatsapp", async (req, res) => {
       }
 
       profile.name = nombreCandidate;
+      saveUserProfiles();
       userState[from] = "MENU_PRINCIPAL";
       await sendWatiMessage(from, getMenuPrincipalText(profile.name));
       return res.sendStatus(200);
@@ -1554,7 +1575,7 @@ if (userState[from] === "RESERVA_DURACION") {
           `📱 Teléfono: ${draft.phone}\n` +
           `💬 Cliente WhatsApp: ${from}`;
         
-        await sendWatiMessage("50663038030", notificationAlpadel);
+        
         clearReservationDraft(from);
         userState[from] = "MENU_PRINCIPAL";
 
@@ -1745,7 +1766,7 @@ app.get("/tomar/:numero", (req, res) => {
   handoff.until = Date.now() + HANDOFF_DURATION_MS;
   handoff.notified = false;
   saveHandoffState();
-  res.send("✅ Bot silenciado para " + numero + " por 45 minutos.");
+  res.send("✅ Bot silenciado para " + numero + " por 15 minutos.");
 });
 
 app.get("/liberar/:numero", (req, res) => {
@@ -1759,6 +1780,7 @@ app.get("/", (req, res) => res.send("OK"));
 // SERVIDOR
 // ================================
 loadHandoffState().catch(e => console.log("Error inicial handoff:", e.message));
+loadUserProfiles().catch(e => console.log("Error inicial perfiles:", e.message));
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("Servidor WhatsApp activo en puerto " + PORT);
