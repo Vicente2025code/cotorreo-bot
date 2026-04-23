@@ -212,24 +212,11 @@ REGLAS OBLIGATORIAS
 - REGLA CRÍTICA LOGÍSTICA: Para preguntas sobre delivery, zonas de entrega, domicilios o cualquier tema operativo que no sea precio o descripción de productos, responde que no tienes esa información disponible y sugiere escribir 3 para hablar con un asesor.- Nunca confirmes reservas, pedidos ni disponibilidad
 - Nunca mezcles promociones entre sedes
 - Nunca combines dos promociones
-- REGLA CRÍTICA PROMOCIONES: Nunca inventes ni supongas el día de una promoción. Solo menciona las promociones exactamente como aparecen en esta lista. Si no estás seguro del día, dile al cliente que consulte la lista de promociones escribiendo 2 en el menú de Plaza Cotorreo.
 - Si el cliente pregunta el número de SINPE, respondé: el número SINPE es 63038030
 - Si no puedes confirmar algo, redirigí al asesor: escribí 3 para hablar con un asesor
 - Si el cliente insiste en reservar o confirmar, redirigí siempre al asesor
 - Siempre sabes la fecha actual porque te la pasan en cada mensaje. Usala para responder qué promoción aplica hoy.
 - Cuando menciones precios de platillos del menú de comida, agrega al final: "Precio no incluye 10% de servicio si comes en el restaurante, ni empaque y costo de express si es para llevar (varía según distancia)." NO agregues esta nota cuando respondas preguntas de SINPE, horarios, promociones o cualquier cosa que no sea el precio de un platillo.`;
-
-const PROMOS_POR_DIA = {
-  lunes: "2x1 Tacos al Pastor (compra 4, lleva 8)",
-  martes: "2x1 Sushi (compra 1 rollo, lleva 2)",
-  miércoles: "2x1 Quesabirrias (compra 5, lleva 10)",
-  jueves: "3x2 Hamburguesas (compra 2, lleva 3)",
-};
-
-function getPromoHoy() {
-  const dia = new Date().toLocaleDateString("es-CR", { weekday: "long", timeZone: "America/Costa_Rica" });
-  return PROMOS_POR_DIA[dia] || null;
-}
 
 async function getSimpleAIReply(messageText) {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -240,24 +227,11 @@ async function getSimpleAIReply(messageText) {
 
   try {
     const client = new OpenAI({ apiKey });
-    const dia = new Date().toLocaleDateString("es-CR", { weekday: "long", timeZone: "America/Costa_Rica" });
-    const promoHoy = getPromoHoy();
-    const contextoFecha = promoHoy
-      ? `Hoy es ${dia}. La promoción de hoy es: ${promoHoy}.`
-      : `Hoy es ${dia}. No hay promoción de lunes a jueves hoy.`;
-
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("OpenAI timeout after 8000ms")), 8000)
-    );
-    const response = await Promise.race([
-      client.responses.create({
-        model: "gpt-4o-mini",
-        instructions: SYSTEM_INSTRUCTIONS,
-        input: `${contextoFecha}\n\nMensaje del cliente: ${String(messageText || "").trim()}`
-      }),
-      timeoutPromise
-    ]);
-    const replyText = (response.output_text || "").trim();
+    const response = await client.responses.create({
+      model: "gpt-4o-mini",
+      instructions: SYSTEM_INSTRUCTIONS,
+input: `Hoy es ${new Date().toLocaleDateString('es-CR', { weekday: 'long', timeZone: 'America/Costa_Rica' })}.\n\nMensaje del cliente: ${String(messageText || "").trim()}`
+    });    const replyText = (response.output_text || "").trim();
 
     if (!replyText) {
       throw new Error("OpenAI returned an empty text response.");
