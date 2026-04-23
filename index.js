@@ -791,7 +791,7 @@ app.post("/whatsapp", async (req, res) => {
     // ================================
     // HANDOFF MANUAL (ASESOR)
     // ================================
-    if (text === "tomar") {
+   if (text === "tomar" || rawText.toLowerCase().includes("soy tu asesor de grupo cotorreo")) {
       const wasActive = isHandoffActive(from);
      handoff.active = true;
       handoff.until = Date.now() + HANDOFF_DURATION_MS;
