@@ -832,7 +832,7 @@ app.post("/whatsapp", async (req, res) => {
     if (!from) return res.sendStatus(200);
     const messageId = req.body?.id || req.body?.messages?.[0]?.id || `${from}_${rawText}_${Math.floor(Date.now() / 10000)}`;
     const dedupKey = `dedup:${messageId}`;
-    const isNew = await redis.set(dedupKey, "1", { nx: true, ex: 120 });
+    const isNew = await redis.set(dedupKey, "1", { nx: true, ex: 1800 });
     if (!isNew) return res.sendStatus(200);
 
     lockKey = `lock:${from}`;
@@ -914,7 +914,7 @@ app.post("/whatsapp", async (req, res) => {
       }
 
       profile.name = nombreCandidate;
-      saveUserProfiles();
+      await saveUserProfiles();
       userState[from] = "MENU_PRINCIPAL";
       await sendWatiMessage(from, getMenuPrincipalText(profile.name));
       return res.sendStatus(200);
@@ -935,10 +935,23 @@ app.post("/whatsapp", async (req, res) => {
       return res.sendStatus(200);
     }
 
-    if (routeDecision.route === "candidate_for_ai" && !hasActiveFlow) {
-      userState[from] = "MENU_PRINCIPAL";
-      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+    if (routeDecision.route === "candidate_for_ai" && !hasActiveFlow && containsBlockedAIIntent(text)) {
+      await sendWatiMessage(from, "Para ayudarte con información exacta, por favor elige una opción del menú 👇\n\n1️⃣ 🍽️ Comer en Plaza Cotorreo\n2️⃣ 🎾 Jugar pádel en Alpadel\n3️⃣ 👤 Hablar con un asesor");
       return res.sendStatus(200);
+    }
+
+    if (routeDecision.route === "candidate_for_ai" && !hasActiveFlow) {
+      try {
+        const aiReply = await getSimpleAIReply(text);
+        await sendWatiMessage(from, aiReply);
+        return res.sendStatus(200);
+      } catch (error) {
+        console.error("AI error:", error.message);
+        await sendWatiMessage(from,
+          "No entendí del todo tu mensaje 🤔\n\n¿Qué te gustaría hacer?\n\n1️⃣ 🍽️ Comer en Plaza Cotorreo\n2️⃣ 🎾 Jugar pádel en Alpadel\n3️⃣ 👤 Hablar con un asesor"
+        );
+        return res.sendStatus(200);
+      }
     }
 
     // ================================
