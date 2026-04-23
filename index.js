@@ -680,14 +680,28 @@ async function isHumanInControl(phoneNumber) {
     const data = await response.json();
     const messages = data?.messages?.items || [];
 
+   // Buscar el mensaje más reciente del cliente (owner: false)
+    // y verificar si después hay un mensaje de humano (owner: true, no API Token)
+    let foundClientMessage = false;
+    
     for (const msg of messages) {
-      if (msg.owner === true) {
-        const messageAge = Date.now() - (parseFloat(msg.timestamp) * 1000);
-        const isRecent = messageAge < 15 * 60 * 1000; // 15 minutos
+      if (msg.owner === false) {
+        // Este es el mensaje del cliente — ya encontramos el punto de referencia
+        foundClientMessage = true;
+        continue;
+      }
+      
+      if (msg.owner === true && foundClientMessage) {
+        // Este mensaje del agente es ANTERIOR al mensaje del cliente
+        // Si es humano, estaba atendiendo antes — no cuenta
+        break;
+      }
+      
+      if (msg.owner === true && !foundClientMessage) {
+        // Este mensaje del agente es POSTERIOR al mensaje del cliente
         const isHuman = msg.operatorName && 
                         msg.operatorName.trim() !== "" && 
-                        !msg.operatorName.includes("API Token") &&
-                        isRecent;
+                        !msg.operatorName.includes("API Token");
         if (isHuman) {
           console.log("👤 Humano en control:", msg.operatorName);
           return true;
@@ -695,9 +709,6 @@ async function isHumanInControl(phoneNumber) {
         return false;
       }
     }
-    return false;
-  } catch (err) {
-    console.log("❌ Error consultando estado WATI:", err?.message);
     return false;
   }
 }
