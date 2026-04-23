@@ -1512,7 +1512,7 @@ app.post("/whatsapp", async (req, res) => {
           `💬 Cliente WhatsApp: ${from}`;
         
         await sendWatiMessage("50663038030", notificationMessage);
-        const notificationMessage = 
+        let notificationMessage = 
           `🔔 Nueva solicitud de reserva\n\n` +
           `📍 Lugar: ${draft.location}\n` +
           `👤 Nombre: ${draft.name}\n` +
