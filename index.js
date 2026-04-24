@@ -792,6 +792,20 @@ app.post("/whatsapp", async (req, res) => {
       return res.sendStatus(200);
     }
 
+    if (eventType === "sessionMessageSent") {
+      const isHuman = req.body?.operatorEmail &&
+                      !req.body.operatorEmail.includes("api-token-user");
+      if (isHuman && from) {
+        const handoff = getUserHandoff(from);
+        handoff.active = true;
+        handoff.until = Date.now() + HANDOFF_DURATION_MS;
+        handoff.notified = true;
+        saveHandoffState();
+        console.log("👤 Handoff activado:", req.body.operatorName);
+      }
+      return res.sendStatus(200);
+    }
+
     // Si viene un eventType diferente a mensaje, ignorar (pero 200)
     if (eventType && eventType !== "message_received" && eventType !== "message") {
       return res.sendStatus(200);
