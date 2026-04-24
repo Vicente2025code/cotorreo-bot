@@ -747,6 +747,7 @@ function normalizeWatiPayload(body) {
 app.post("/whatsapp", async (req, res) => {
   // Regla: WATI debe recibir 200 siempre.
   try {
+    console.log("📥 WEBHOOK RAW:", JSON.stringify(req.body, null, 2));
     const { eventType, from, rawText } = normalizeWatiPayload(req.body);
     const text = rawText.trim().toLowerCase();
 
