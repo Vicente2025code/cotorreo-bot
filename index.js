@@ -319,6 +319,10 @@ const PLAZA_MENU_LINK = "https://linktr.ee/elcotorreocr";
 const PLAYTOMIC_LINK = "https://playtomic.com/clubs/alpadel-club";
 const SINPE_NUMBER = "63038030";
 
+// Links de los Airtable Forms para reservar (sustituyen el flujo conversacional viejo)
+const ALPADEL_FORM_URL = "https://airtable.com/apptnTz0OkjAAXADp/shrwkMGbzQ3wFwgzp";
+const COTORREO_FORM_URL = "https://airtable.com/apptnTz0OkjAAXADp/shrJERufvnh9vAy5v";
+
 // (Categorías: las dejé idénticas a lo que pegaste)
 const PLAZA_MENU_CATEGORIES = [
   { key: "CAT_ENTRADAS", label: "Entradas", number: 1, items: [
@@ -849,6 +853,61 @@ app.post("/whatsapp", async (req, res) => {
       userState[from] = "ASK_NAME";
       await sendWatiMessage(from, getNamePrompt());
       return res.sendStatus(200);
+    }
+
+    // ================================
+    // SHORTCUT RESERVAS — mandar link de form
+    // (Reemplaza el flujo conversacional viejo de reservas que no funcionaba.
+    //  Solo intercepta si NO hay flujo activo crítico — para no romper carrito,
+    //  onboarding, ni mensajes en curso.)
+    // ================================
+    {
+      const normalizedRes = (text || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[¡!¿?]/g, "")
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "");
+
+      const wantsAlpadel = /(\balpadel\b|\bcancha\b|\bcanchas\b|\bpadel\b|\bpaddle\b|\bjugar padel\b|\bjugar paddle\b)/.test(normalizedRes);
+      const wantsCotorreo = /(\bmesa\b|\bmesas\b|\breservar mesa\b|\balmorzar\b|\bcenar\b|\bcomer en cotorreo\b|\bplaza cotorreo\b)/.test(normalizedRes);
+      const wantsGeneric = /(\breservar\b|\breserva\b|\breservacion\b|\bquiero reservar\b)/.test(normalizedRes);
+
+      if (!hasActiveUserFlow(userState[from], profile) && (wantsAlpadel || wantsCotorreo || wantsGeneric)) {
+        const firstName = (profile.name || "").split(" ")[0];
+
+        if (wantsAlpadel && !wantsCotorreo) {
+          await sendWatiMessage(from,
+            `🎾 ¡Claro, ${firstName}! Reserva tu cancha aquí:\n\n` +
+            `👉 ${ALPADEL_FORM_URL}\n\n` +
+            `Llena los datos y te confirmamos por este mismo chat en un momento.\n\n` +
+            `Si prefieres que te atienda una persona, escribe *asesor*.`
+          );
+          userState[from] = "MENU_PRINCIPAL";
+          return res.sendStatus(200);
+        }
+
+        if (wantsCotorreo && !wantsAlpadel) {
+          await sendWatiMessage(from,
+            `🍽️ ¡Claro, ${firstName}! Reserva tu mesa aquí:\n\n` +
+            `👉 ${COTORREO_FORM_URL}\n\n` +
+            `Llena los datos y te confirmamos por este mismo chat en un momento.\n\n` +
+            `Si prefieres que te atienda una persona, escribe *asesor*.`
+          );
+          userState[from] = "MENU_PRINCIPAL";
+          return res.sendStatus(200);
+        }
+
+        // Ambiguo: solo dijo "reservar" sin contexto, o mencionó ambos
+        await sendWatiMessage(from,
+          `👋 ¡Hola ${firstName}! ¿Para qué quieres reservar?\n\n` +
+          `🎾 *Cancha de pádel en Alpadel:*\n👉 ${ALPADEL_FORM_URL}\n\n` +
+          `🍽️ *Mesa en Plaza Cotorreo:*\n👉 ${COTORREO_FORM_URL}\n\n` +
+          `Si prefieres hablar con una persona, escribe *asesor*.`
+        );
+        userState[from] = "MENU_PRINCIPAL";
+        return res.sendStatus(200);
+      }
     }
 
     const hasHumanHandoff = isHandoffActive(from);
