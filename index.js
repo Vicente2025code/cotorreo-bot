@@ -1123,14 +1123,42 @@ function normalizeWatiPayload(body) {
   // — preferimos el ID del botón (ej "1", "2") sobre el texto visible ("🍽️ Comer en Plaza")
   // porque los handlers de estado del bot ya reaccionan a "1", "2", "3".
   const buttonReplyId =
+    // WATI shapes (varias versiones de su API)
     b.buttonReply?.id ||
+    b.buttonReply?.payload ||
     b.interactiveButtonReply?.id ||
+    b.interactiveButtonReply?.payload ||
+    b.interactive?.button_reply?.id ||
+    b.interactive?.list_reply?.id ||
     b.button?.payload ||
     b.button?.text ||
+    b.listReply?.id ||
+    b.listReply?.rowId ||
+    // WhatsApp Cloud API shapes (anidados)
+    b.message?.interactive?.button_reply?.id ||
+    b.message?.interactive?.list_reply?.id ||
+    b.message?.buttonReply?.id ||
+    b.message?.listReply?.id ||
     b.messages?.[0]?.button_reply?.id ||
+    b.messages?.[0]?.list_reply?.id ||
     b.messages?.[0]?.interactive?.button_reply?.id ||
     b.messages?.[0]?.interactive?.list_reply?.id ||
     null;
+
+  // Detección heurística: si llega cualquier indicador de reply pero no extrajimos ID,
+  // loggeamos para diagnóstico (estaremos pegando shapes nuevos).
+  if (!buttonReplyId) {
+    const looksLikeReply =
+      b.buttonReply || b.interactiveButtonReply || b.interactive ||
+      b.button || b.listReply || b.message?.interactive ||
+      b.messages?.[0]?.interactive || b.messages?.[0]?.button_reply ||
+      b.eventType === "interactiveButtonReply" || b.eventType === "interactiveListReply";
+    if (looksLikeReply) {
+      console.log("⚠️ Button reply detectado pero shape desconocido:", JSON.stringify(b).slice(0, 500));
+    }
+  } else {
+    console.log("✅ Button reply parseado, id:", buttonReplyId);
+  }
 
   const rawText =
     buttonReplyId ||
