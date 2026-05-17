@@ -1206,8 +1206,27 @@ app.post("/whatsapp", async (req, res) => {
     // ================================
     if (userState[from] === "PLAZA_MENU") {
       if (text === "1") {
-        userState[from] = "PLAZA_MENU_CATEGORIES";
-        await sendWatiMessage(from, getPlazaCategoriesText());
+        // A — Quitar el carrito (2026-05-16). Antes el bot llevaba al
+        // cliente por 18 categorías + carrito + SINPE. Decisión de Vicente:
+        // reemplazar por link a Linktree (menú completo) + handoff a asesor
+        // humano. El cliente ve el menú, decide, y un humano coordina el
+        // pedido. Eso reduce abandono y compite mejor contra Glovo/Uber.
+        const firstNamePedido = (profile.name || "").split(" ")[0];
+        const handoffPedido = getUserHandoff(from);
+        handoffPedido.active = true;
+        handoffPedido.until = Date.now() + HANDOFF_DURATION_MS;
+        handoffPedido.notified = true;
+        saveHandoffState();
+        userState[from] = "ASESOR";
+
+        await sendWatiMessage(from,
+          `🍽️ ¡Dale, ${firstNamePedido}! Acá tenés el menú completo:\n\n` +
+          `👉 ${PLAZA_MENU_LINK}\n\n` +
+          `Para hacer tu pedido, te conectamos directo con un asesor que te ayuda por este mismo chat 💛\n\n` +
+          `En breve te escribe.`
+        );
+        logEvent("order_handoff_triggered", { from, source: "plaza_menu_option_1" });
+        logEvent("handoff_triggered", { from, mode: "auto_order_request", state_at_handoff: "ASESOR" });
         return res.sendStatus(200);
       }
 
