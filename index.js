@@ -798,6 +798,93 @@ const payload = new URLSearchParams({
   }
 }
 
+// ================================
+// ENVÍO DE TEMPLATE MESSAGE WATI
+// Usa el endpoint /sendTemplateMessage (no /sendSessionMessage) para
+// poder iniciar conversación fuera de la ventana de 24h.
+// El template debe estar aprobado por Meta vía WATI panel.
+// ================================
+async function sendWatiTemplate(to, templateName, paramValues = []) {
+  const token = process.env.WATI_TOKEN;
+  const baseEndpoint = process.env.WATI_ENDPOINT;
+  const tenantId = "1085608";
+
+  if (!token || !baseEndpoint) {
+    console.log("⚠️ WATI no configurado, no se envía template");
+    return;
+  }
+
+  const whatsappNumber = String(to).replace(/\D/g, "");
+  const endpoint = `${baseEndpoint}/${tenantId}/api/v1/sendTemplateMessage?whatsappNumber=${whatsappNumber}`;
+
+  // WATI espera parameters como array de { name, value }
+  const parameters = paramValues.map((value, idx) => ({
+    name: String(idx + 1),
+    value: String(value)
+  }));
+
+  const body = {
+    template_name: templateName,
+    broadcast_name: `${templateName}_${Date.now()}`,
+    parameters
+  };
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
+    });
+    const text = await response.text();
+    console.log(`📨 WATI template "${templateName}" status:`, response.status);
+    if (response.status >= 400) console.log("📨 WATI template error:", text);
+  } catch (err) {
+    console.log("❌ Error enviando template:", err?.message || err);
+  }
+}
+
+// ================================
+// ALERT DE HANDOFF AL STAFF
+// Llamado cada vez que se activa handoff humano (pedido, evento, asesor).
+// Usa el template "staff_alerta" ya aprobado en WATI.
+// Lista de números configurable vía env var HANDOFF_ALERT_NUMBERS (CSV)
+// con fallback al número operativo de Cotorreo.
+// ================================
+const HANDOFF_ALERT_NUMBERS = (process.env.HANDOFF_ALERT_NUMBERS || "50663038030")
+  .split(",")
+  .map(n => n.trim())
+  .filter(Boolean);
+
+async function notifyHandoffAlert({ reason, clientPhone, clientName, originalText }) {
+  // Calcular hora "atender antes de" (ahora + 15 min) en hora Costa Rica
+  const fifteenMinFromNow = new Date(Date.now() + HANDOFF_DURATION_MS);
+  const hhmm = fifteenMinFromNow.toLocaleTimeString("es-CR", {
+    timeZone: "America/Costa_Rica",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true
+  });
+
+  const phoneMasked = clientPhone ? `***${String(clientPhone).slice(-8)}` : "desconocido";
+  const namePart = clientName ? `${clientName} ` : "";
+  const msgPart = originalText ? ` · Mensaje: "${String(originalText).slice(0, 80)}"` : "";
+  const detalle = `${namePart}(${phoneMasked})${msgPart}. Atender en WATI antes de ${hhmm}.`;
+
+  // Disparar en paralelo a todos los números configurados
+  await Promise.all(HANDOFF_ALERT_NUMBERS.map(num =>
+    sendWatiTemplate(num, "staff_alerta", [reason, detalle])
+  ));
+
+  logEvent("handoff_alert_sent", {
+    reason,
+    targets_count: HANDOFF_ALERT_NUMBERS.length,
+    client: phoneMasked
+  });
+}
+
 
 // ================================
 // NORMALIZACIÓN PAYLOAD WATI (OBLIGATORIO)
@@ -1101,6 +1188,12 @@ app.post("/whatsapp", async (req, res) => {
         );
         logEvent("event_handoff_triggered", { from, kind: "evento_fiesta" });
         logEvent("handoff_triggered", { from, mode: "auto_event_keyword", state_at_handoff: "ASESOR" });
+        notifyHandoffAlert({
+          reason: "🎈 Evento / Fiesta",
+          clientPhone: from,
+          clientName: profile.name,
+          originalText: rawText
+        }).catch(e => console.log("alert error:", e?.message));
         return res.sendStatus(200);
       }
     }
@@ -1157,6 +1250,12 @@ app.post("/whatsapp", async (req, res) => {
     if (text === "asesor") {
       userState[from] = "ASESOR";
       await sendWatiMessage(from, ASESOR_TEXT);
+      notifyHandoffAlert({
+        reason: "👤 Asesor solicitado",
+        clientPhone: from,
+        clientName: profile.name,
+        originalText: rawText
+      }).catch(e => console.log("alert error:", e?.message));
       return res.sendStatus(200);
     }
 
@@ -1189,6 +1288,12 @@ app.post("/whatsapp", async (req, res) => {
       if (text === "3") {
         userState[from] = "ASESOR";
         await sendWatiMessage(from, ASESOR_TEXT);
+        notifyHandoffAlert({
+          reason: "👤 Asesor solicitado",
+          clientPhone: from,
+          clientName: profile.name,
+          originalText: rawText
+        }).catch(e => console.log("alert error:", e?.message));
         return res.sendStatus(200);
       }
       if (text === "4") {
@@ -1227,6 +1332,12 @@ app.post("/whatsapp", async (req, res) => {
         );
         logEvent("order_handoff_triggered", { from, source: "plaza_menu_option_1" });
         logEvent("handoff_triggered", { from, mode: "auto_order_request", state_at_handoff: "ASESOR" });
+        notifyHandoffAlert({
+          reason: "🍽️ Pedido pendiente",
+          clientPhone: from,
+          clientName: profile.name,
+          originalText: "Tocó '1 Menú y realizar pedido'"
+        }).catch(e => console.log("alert error:", e?.message));
         return res.sendStatus(200);
       }
 
