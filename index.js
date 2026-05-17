@@ -382,9 +382,20 @@ const PLAZA_MENU_LINK = "https://linktr.ee/elcotorreocr";
 const PLAYTOMIC_LINK = "https://playtomic.com/clubs/alpadel-club";
 const SINPE_NUMBER = "63038030";
 
-// Links de los Airtable Forms para reservar (sustituyen el flujo conversacional viejo)
-const ALPADEL_FORM_URL = "https://airtable.com/apptnTz0OkjAAXADp/shrwkMGbzQ3wFwgzp";
-const COTORREO_FORM_URL = "https://airtable.com/apptnTz0OkjAAXADp/shrJERufvnh9vAy5v";
+// App de reservas (cotorreo-app en Render). Soporta deep-link via query params:
+//   ?tipo=alpadel|cotorreo  → preselecciona el form
+//   ?tel=506XXXXXXXX        → pre-llena teléfono y avanza directo al form
+// El bot construye el link con ambos para que el cliente entre directo al lugar correcto.
+const RESERVAS_APP_URL = "https://cotorreo-app.onrender.com/cliente.html";
+
+function buildReservasLink(tipo, fromPhone) {
+  const params = new URLSearchParams();
+  if (tipo) params.set("tipo", tipo);
+  const tel = (fromPhone || "").replace(/[^0-9]/g, "");
+  if (tel.length >= 8) params.set("tel", tel);
+  const qs = params.toString();
+  return qs ? `${RESERVAS_APP_URL}?${qs}` : RESERVAS_APP_URL;
+}
 
 // (Categorías: las dejé idénticas a lo que pegaste)
 const PLAZA_MENU_CATEGORIES = [
@@ -963,10 +974,11 @@ app.post("/whatsapp", async (req, res) => {
         const firstName = (profile.name || "").split(" ")[0];
 
         if (wantsAlpadel && !wantsCotorreo) {
+          const link = buildReservasLink("alpadel", from);
           await sendWatiMessage(from,
             `🎾 ¡Dale, ${firstName}! Reservá tu cancha acá:\n\n` +
-            `👉 ${ALPADEL_FORM_URL}\n\n` +
-            `Llená los datos y te confirmamos por este mismo chat en un momento.\n\n` +
+            `👉 ${link}\n\n` +
+            `Ya te identificamos por tu WhatsApp — entrás directo al form. Llenalo y te confirmamos por este chat.\n\n` +
             `Si preferís que te atienda una persona, escribí *asesor*.`
           );
           userState[from] = "MENU_PRINCIPAL";
@@ -975,10 +987,11 @@ app.post("/whatsapp", async (req, res) => {
         }
 
         if (wantsCotorreo && !wantsAlpadel) {
+          const link = buildReservasLink("cotorreo", from);
           await sendWatiMessage(from,
             `🍽️ ¡Dale, ${firstName}! Reservá tu mesa acá:\n\n` +
-            `👉 ${COTORREO_FORM_URL}\n\n` +
-            `Llená los datos y te confirmamos por este mismo chat en un momento.\n\n` +
+            `👉 ${link}\n\n` +
+            `Ya te identificamos por tu WhatsApp — entrás directo al form. Llenalo y te confirmamos por este chat.\n\n` +
             `Si preferís que te atienda una persona, escribí *asesor*.`
           );
           userState[from] = "MENU_PRINCIPAL";
@@ -986,11 +999,12 @@ app.post("/whatsapp", async (req, res) => {
           return res.sendStatus(200);
         }
 
-        // Ambiguo: solo dijo "reservar" sin contexto, o mencionó ambos
+        // Ambiguo: solo dijo "reservar" sin contexto, o mencionó ambos.
+        // Mandamos link sin tipo para que el cliente elija dentro de la app.
+        const linkAmbiguo = buildReservasLink(null, from);
         await sendWatiMessage(from,
-          `👋 ¡Hola ${firstName}! ¿Para qué querés reservar?\n\n` +
-          `🎾 *Cancha de pádel en Alpadel:*\n👉 ${ALPADEL_FORM_URL}\n\n` +
-          `🍽️ *Mesa en Plaza Cotorreo:*\n👉 ${COTORREO_FORM_URL}\n\n` +
+          `👋 ¡Hola ${firstName}! Reservá acá y elegís dentro entre cancha o mesa:\n\n` +
+          `👉 ${linkAmbiguo}\n\n` +
           `Si preferís hablar con una persona, escribí *asesor*.`
         );
         userState[from] = "MENU_PRINCIPAL";
