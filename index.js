@@ -853,7 +853,12 @@ async function sendWatiTemplate(to, templateName, paramValues = []) {
 // Lista de números configurable vía env var HANDOFF_ALERT_NUMBERS (CSV)
 // con fallback al número operativo de Cotorreo.
 // ================================
-const HANDOFF_ALERT_NUMBERS = (process.env.HANDOFF_ALERT_NUMBERS || "50663038030")
+// Default: Liliana (admin operativa, WhatsApp activo, ya validado en WATI por uso
+// previo en workflows de n8n). Cambiar via env var HANDOFF_ALERT_NUMBERS (CSV)
+// para agregar más destinatarios sin redeploy.
+// El número 50663038030 (operativo Cotorreo) falló con "validWhatsAppNumber: false"
+// — ese número se usa para llamadas/SINPE pero no tiene WhatsApp activo.
+const HANDOFF_ALERT_NUMBERS = (process.env.HANDOFF_ALERT_NUMBERS || "50660127557")
   .split(",")
   .map(n => n.trim())
   .filter(Boolean);
