@@ -321,6 +321,39 @@ function getMenuPrincipalText(name) {
   );
 }
 
+// F1.4 — Render del menú principal con botones interactivos nativos de WhatsApp.
+// Intenta primero el endpoint de Interactive Buttons. Si WATI rechaza (tier
+// no lo soporta, número no válido, etc.), cae al menú de texto tradicional
+// para no romper la experiencia del cliente.
+const MENU_PRINCIPAL_BUTTONS = [
+  { id: "1", text: "🍽️ Comer en Plaza" },
+  { id: "2", text: "🎾 Jugar pádel" },
+  { id: "3", text: "👤 Hablar asesor" }
+];
+
+async function sendMenuPrincipal(to, name) {
+  const notice = getClosedNotice() || getPromoNotice();
+  const saludo = name
+    ? `¡Hola ${name}! Bienvenido/a a *Grupo Cotorreo*.`
+    : "¡Bienvenido a *Grupo Cotorreo*!";
+  const body = (notice + saludo + "\n\n¿Qué te late hacer hoy?").trim();
+
+  const ok = await sendWatiButtonsMessage(to, {
+    header: "🏢 Grupo Cotorreo",
+    body,
+    buttons: MENU_PRINCIPAL_BUTTONS
+  });
+
+  if (ok) {
+    logEvent("menu_principal_sent", { to, mode: "interactive_buttons" });
+    return;
+  }
+
+  // Fallback: texto tradicional con números (todos los handlers ya saben procesar)
+  logEvent("menu_principal_sent", { to, mode: "text_fallback" });
+  await sendWatiMessage(to, getMenuPrincipalText(name));
+}
+
 function getUserReservation(from) {
   return userReservations[from] || null;
 }
@@ -847,6 +880,61 @@ async function sendWatiTemplate(to, templateName, paramValues = []) {
 }
 
 // ================================
+// ENVÍO DE INTERACTIVE BUTTONS MESSAGE (F1.4)
+// Hasta 3 botones tocables nativos de WhatsApp. Cliente toca → WATI manda
+// al webhook un mensaje con el text del botón (que mapeamos al id).
+// Retorna true si se envió OK, false si falló (para que el caller use fallback).
+// ================================
+async function sendWatiButtonsMessage(to, { header, body, footer, buttons }) {
+  const token = process.env.WATI_TOKEN;
+  const baseEndpoint = process.env.WATI_ENDPOINT;
+  const tenantId = "1085608";
+
+  if (!token || !baseEndpoint) {
+    console.log("⚠️ WATI no configurado, no se envía interactive");
+    return false;
+  }
+  if (!buttons || buttons.length === 0 || buttons.length > 3) {
+    console.log("⚠️ Interactive buttons: cantidad inválida (deben ser 1-3)");
+    return false;
+  }
+
+  const whatsappNumber = String(to).replace(/\D/g, "");
+  const endpoint = `${baseEndpoint}/${tenantId}/api/v1/sendInteractiveButtonsMessage?whatsappNumber=${whatsappNumber}`;
+
+  const payload = {
+    header: { type: "Text", text: String(header || "").slice(0, 60) },
+    body: String(body || "").slice(0, 1024),
+    footer: footer ? String(footer).slice(0, 60) : undefined,
+    buttons: buttons.map(b => ({
+      id: String(b.id),
+      text: String(b.text).slice(0, 20)
+    }))
+  };
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+    const text = await response.text();
+    console.log("📨 WATI interactive status:", response.status);
+    if (response.status >= 400) {
+      console.log("📨 WATI interactive error:", text);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.log("❌ Error enviando interactive:", err?.message || err);
+    return false;
+  }
+}
+
+// ================================
 // ALERT DE HANDOFF AL STAFF
 // Llamado cada vez que se activa handoff humano (pedido, evento, asesor).
 // Usa el template "staff_alerta" ya aprobado en WATI.
@@ -921,8 +1009,22 @@ function normalizeWatiPayload(body) {
     b.messages?.[0]?.from ||
     null;
 
-  // text: múltiples variantes posibles
+  // text: múltiples variantes posibles.
+  // Si el cliente tocó un botón interactivo, WATI manda buttonReply / interactiveButtonReply
+  // — preferimos el ID del botón (ej "1", "2") sobre el texto visible ("🍽️ Comer en Plaza")
+  // porque los handlers de estado del bot ya reaccionan a "1", "2", "3".
+  const buttonReplyId =
+    b.buttonReply?.id ||
+    b.interactiveButtonReply?.id ||
+    b.button?.payload ||
+    b.button?.text ||
+    b.messages?.[0]?.button_reply?.id ||
+    b.messages?.[0]?.interactive?.button_reply?.id ||
+    b.messages?.[0]?.interactive?.list_reply?.id ||
+    null;
+
   const rawText =
+    buttonReplyId ||
     (typeof b.text === "string" ? b.text : null) ||
     b.messageText ||
     b.message?.text ||
@@ -1073,7 +1175,7 @@ app.post("/whatsapp", async (req, res) => {
 
       profile.name = nombreCandidate;
       userState[from] = "MENU_PRINCIPAL";
-      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      await sendMenuPrincipal(from, profile.name);
       return res.sendStatus(200);
     }
 
@@ -1248,7 +1350,7 @@ app.post("/whatsapp", async (req, res) => {
     // ================================
     if (["menu", "menú", "inicio", "hola", "0"].includes(text)) {
       userState[from] = "MENU_PRINCIPAL";
-      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      await sendMenuPrincipal(from, profile.name);
       return res.sendStatus(200);
     }
 
@@ -1307,7 +1409,7 @@ app.post("/whatsapp", async (req, res) => {
         return res.sendStatus(200);
       }
 
-      await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+      await sendMenuPrincipal(from, profile.name);
       return res.sendStatus(200);
     }
 
@@ -1385,7 +1487,7 @@ app.post("/whatsapp", async (req, res) => {
 
       if (text === "9" || text === "0") {
         userState[from] = "MENU_PRINCIPAL";
-        await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+        await sendMenuPrincipal(from, profile.name);
         return res.sendStatus(200);
       }
 
@@ -1404,7 +1506,7 @@ app.post("/whatsapp", async (req, res) => {
       }
       if (text === "0") {
         userState[from] = "MENU_PRINCIPAL";
-        await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+        await sendMenuPrincipal(from, profile.name);
         return res.sendStatus(200);
       }
 
@@ -1441,7 +1543,7 @@ app.post("/whatsapp", async (req, res) => {
 
       if (text === "0") {
         userState[from] = "MENU_PRINCIPAL";
-        await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+        await sendMenuPrincipal(from, profile.name);
         return res.sendStatus(200);
       }
 
@@ -1514,7 +1616,7 @@ app.post("/whatsapp", async (req, res) => {
 
       if (text === "0") {
         userState[from] = "MENU_PRINCIPAL";
-        await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+        await sendMenuPrincipal(from, profile.name);
         return res.sendStatus(200);
       }
 
@@ -1552,7 +1654,7 @@ app.post("/whatsapp", async (req, res) => {
 
       if (text === "0") {
         userState[from] = "MENU_PRINCIPAL";
-        await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+        await sendMenuPrincipal(from, profile.name);
         return res.sendStatus(200);
       }
 
@@ -1578,7 +1680,7 @@ app.post("/whatsapp", async (req, res) => {
 
       if (text === "0") {
         userState[from] = "MENU_PRINCIPAL";
-        await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+        await sendMenuPrincipal(from, profile.name);
         return res.sendStatus(200);
       }
 
@@ -1609,7 +1711,7 @@ app.post("/whatsapp", async (req, res) => {
 
       if (text === "0") {
         userState[from] = "MENU_PRINCIPAL";
-        await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+        await sendMenuPrincipal(from, profile.name);
         return res.sendStatus(200);
       }
 
@@ -1683,7 +1785,7 @@ app.post("/whatsapp", async (req, res) => {
 
       if (text === "0") {
         userState[from] = "MENU_PRINCIPAL";
-        await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+        await sendMenuPrincipal(from, profile.name);
         return res.sendStatus(200);
       }
 
@@ -1721,7 +1823,7 @@ app.post("/whatsapp", async (req, res) => {
 
       if (text === "0") {
         userState[from] = "MENU_PRINCIPAL";
-        await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+        await sendMenuPrincipal(from, profile.name);
         return res.sendStatus(200);
       }
 
@@ -1741,7 +1843,7 @@ app.post("/whatsapp", async (req, res) => {
       if (text === "0") {
         clearReservationDraft(from);
         userState[from] = "MENU_PRINCIPAL";
-        await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+        await sendMenuPrincipal(from, profile.name);
         return res.sendStatus(200);
       }
 
@@ -1769,7 +1871,7 @@ app.post("/whatsapp", async (req, res) => {
       if (text === "0") {
         clearReservationDraft(from);
         userState[from] = "MENU_PRINCIPAL";
-        await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+        await sendMenuPrincipal(from, profile.name);
         return res.sendStatus(200);
       }
 
@@ -1799,7 +1901,7 @@ if (userState[from] === "RESERVA_DURACION") {
       if (text === "0") {
         clearReservationDraft(from);
         userState[from] = "MENU_PRINCIPAL";
-        await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+        await sendMenuPrincipal(from, profile.name);
         return res.sendStatus(200);
       }
 
@@ -1823,7 +1925,7 @@ if (userState[from] === "RESERVA_DURACION") {
       if (text === "0") {
         clearReservationDraft(from);
         userState[from] = "MENU_PRINCIPAL";
-        await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+        await sendMenuPrincipal(from, profile.name);
         return res.sendStatus(200);
       }
 
@@ -1849,7 +1951,7 @@ if (userState[from] === "RESERVA_DURACION") {
       if (text === "0") {
         clearReservationDraft(from);
         userState[from] = "MENU_PRINCIPAL";
-        await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+        await sendMenuPrincipal(from, profile.name);
         return res.sendStatus(200);
       }
 
@@ -1874,7 +1976,7 @@ if (userState[from] === "RESERVA_DURACION") {
       if (text === "0") {
         clearReservationDraft(from);
         userState[from] = "MENU_PRINCIPAL";
-        await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+        await sendMenuPrincipal(from, profile.name);
         return res.sendStatus(200);
       }
 
@@ -1899,7 +2001,7 @@ if (userState[from] === "RESERVA_DURACION") {
       if (text === "0") {
         clearReservationDraft(from);
         userState[from] = "MENU_PRINCIPAL";
-        await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+        await sendMenuPrincipal(from, profile.name);
         return res.sendStatus(200);
       }
 
@@ -1978,7 +2080,7 @@ if (userState[from] === "RESERVA_DURACION") {
       if (text === "0") {
         clearReservationDraft(from);
         userState[from] = "MENU_PRINCIPAL";
-        await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+        await sendMenuPrincipal(from, profile.name);
         return res.sendStatus(200);
       }
 
@@ -1994,7 +2096,7 @@ if (userState[from] === "RESERVA_DURACION") {
     if (userState[from] === "VIEW_RESERVATIONS") {
       if (text === "9" || text === "0") {
         userState[from] = "MENU_PRINCIPAL";
-        await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+        await sendMenuPrincipal(from, profile.name);
         return res.sendStatus(200);
       }
 
@@ -2093,7 +2195,7 @@ if (userState[from] === "RESERVA_DURACION") {
 
       if (text === "9" || text === "0") {
         userState[from] = "MENU_PRINCIPAL";
-        await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+        await sendMenuPrincipal(from, profile.name);
         return res.sendStatus(200);
       }
 
@@ -2116,7 +2218,7 @@ if (userState[from] === "RESERVA_DURACION") {
     if (userState[from] === "ASESOR") {
       if (text === "9" || text === "0") {
         userState[from] = "MENU_PRINCIPAL";
-        await sendWatiMessage(from, getMenuPrincipalText(profile.name));
+        await sendMenuPrincipal(from, profile.name);
         return res.sendStatus(200);
       }
 
