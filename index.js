@@ -52,11 +52,37 @@ async function saveHandoffState() {
 }
 
 // ================================
+// LOGGING ESTRUCTURADO (F1.2)
+// Emite JSON-line a stdout para que cualquier colector (Railway, n8n, etc.)
+// pueda agregarlos. Eventos clave:
+//   - message_received      → cada mensaje entrante con su estado actual
+//   - ai_fallback_triggered → cuando el LLM toma control (debe ser raro)
+//   - handoff_triggered     → cuando un humano se hace cargo
+//   - reservation_link_sent → interceptor de reservas disparó
+//   - state_transition      → cambio de estado relevante (entrada a flujos críticos)
+// ================================
+function logEvent(event, payload = {}) {
+  try {
+    const safePayload = { ...payload };
+    if (safePayload.from && typeof safePayload.from === "string") {
+      safePayload.from = safePayload.from.slice(-4); // últimos 4 dígitos para privacidad
+    }
+    console.log(JSON.stringify({
+      ts: new Date().toISOString(),
+      event,
+      ...safePayload
+    }));
+  } catch (err) {
+    console.log("logEvent_failed", event, err?.message);
+  }
+}
+
+// ================================
 // TEXTOS (FÁCILES DE EDITAR)
 // ================================
 const MENU_PRINCIPAL_TEXT = `
 👋 ¡Bienvenido a *Grupo Cotorreo*!
-¿Qué te gustaría hacer hoy? escribe el número 👇
+¿Qué te late hacer hoy? Escribí el número 👇
 
 1️⃣ 🍽️ Comer en Plaza Cotorreo
 2️⃣ 🎾 Jugar pádel en Alpadel
@@ -103,13 +129,11 @@ Si prefieres, también puedes llamarnos:
 0️⃣ Volver al menú principal
 `;
 
-const HANDOFF_MESSAGE = `👋 ¡Perfecto!
+const HANDOFF_MESSAGE = `👋 ¡Listo!
 
-Ya te está atendiendo una persona de nuestro equipo 💚
+Ya estás en manos de nuestro equipo 💚
 
-Mientras coordinamos todo, si querés te puedo recomendar algo del menú que suele gustar mucho 😋🔥
-
-Decime qué se te antoja y lo vemos juntos.`;
+Te contestan por acá en breve. Si es urgente, también podés llamar al 6303 8030.`;
 
 const HANDOFF_DURATION_MS = 15 * 60 * 1000;
 
@@ -167,7 +191,9 @@ function routeMessage(messageText, hasHumanHandoff, hasActiveFlow, matchedFlowIn
 function hasActiveUserFlow(state, profile) {
   if (!profile?.name) return true;
   if (state === "MENU_PRINCIPAL") return false;
-  // Estados donde el bot espera respuesta específica del usuario
+  // Estados donde el bot espera respuesta específica del usuario.
+  // Incluye estados de navegación de menú: cualquier número escrito
+  // ahí debe ir al handler de estado, nunca al fallback de IA.
   const strictStates = [
     "ASK_NAME",
     "RESERVA_NOMBRE",
@@ -182,8 +208,18 @@ function hasActiveUserFlow(state, profile) {
     "ORDER_PAYMENT",
     "CHECKOUT",
     "VIEW_CART",
-    "CART_ACTION"
+    "CART_ACTION",
+    "PLAZA_MENU",
+    "PLAZA_MENU_CATEGORIES",
+    "PLAZA_PROMOCIONES",
+    "PLAZA_HORARIOS",
+    "PLAZA_UBICACION",
+    "PLAZA_PAQUETES",
+    "ALPADEL_MENU",
+    "ASESOR",
+    "VIEW_RESERVATIONS"
   ];
+  if (state && typeof state === "string" && state.startsWith("CAT_")) return true;
   return strictStates.includes(state);
 }
 
@@ -197,7 +233,10 @@ function matchesCurrentFlowIntent(text) {
 
   if (!normalizedText) return false;
 
-  return /^(0|1|2|3|4|5|6|9|menu|pedido|orden|reservar|reserva|asesor|plaza|alpadel)$/.test(normalizedText);
+  // Acepta cualquier número de 1 o 2 dígitos. Los handlers de estado deciden
+  // si ese número aplica a su menú actual. Si no aplica, repiten el menú,
+  // pero ya nunca cae al fallback de IA por escribir "10" u "11".
+  return /^(\d{1,2}|menu|menú|pedido|orden|reservar|reserva|asesor|plaza|alpadel|carrito|reservas|hola|inicio)$/.test(normalizedText);
 }
 
 function containsBlockedAIIntent(text) {
@@ -222,11 +261,35 @@ function containsBlockedAIIntent(text) {
   ].some((intent) => normalizedText.includes(intent));
 }
 
+// Horarios Plaza Cotorreo (zona Costa Rica)
+//   Lun-Jue: 11:00 - 22:00
+//   Vie-Sab: 11:00 - 24:00 (medianoche)
+//   Dom:     09:00 - 22:00
+function getPlazaSchedule() {
+  const now = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Costa_Rica" }));
+  const dow = now.getDay(); // 0 = domingo
+  const hour = now.getHours() + now.getMinutes() / 60;
+  let openHour, closeHour;
+  if (dow === 0)            { openHour = 9;  closeHour = 22; } // domingo
+  else if (dow >= 1 && dow <= 4) { openHour = 11; closeHour = 22; } // lunes a jueves
+  else                       { openHour = 11; closeHour = 24; } // viernes y sábado
+  const isOpen = hour >= openHour && hour < closeHour;
+  return { isOpen, openHour, closeHour, dow };
+}
+
+function getClosedNotice() {
+  const { isOpen, openHour } = getPlazaSchedule();
+  if (isOpen) return "";
+  const openLabel = `${Math.floor(openHour)}:00 ${openHour < 12 ? "am" : "pm"}`;
+  return `⏰ *Plaza Cotorreo está cerrado ahora.* Abrimos hoy a las ${openLabel}.\nMientras tanto, te dejo el menú para que vayás viendo 👇\n\n`;
+}
+
 function getMenuPrincipalText(name) {
-  if (!name) return MENU_PRINCIPAL_TEXT;
-  return MENU_PRINCIPAL_TEXT.replace(
+  const notice = getClosedNotice();
+  if (!name) return notice + MENU_PRINCIPAL_TEXT;
+  return notice + MENU_PRINCIPAL_TEXT.replace(
     "¡Bienvenido a *Grupo Cotorreo*!",
-    `Hola ${name}! ¡Bienvenido a *Grupo Cotorreo*!`
+    `¡Hola ${name}! Bienvenido/a a *Grupo Cotorreo*`
   );
 }
 
@@ -769,6 +832,16 @@ app.post("/whatsapp", async (req, res) => {
     const profile = getUserProfile(from);
     const handoff = getUserHandoff(from);
 
+    // F1.2 — log de mensaje entrante
+    if (eventType === "message_received" || eventType === "message" || !eventType) {
+      logEvent("message_received", {
+        from,
+        state: userState[from],
+        text_preview: (rawText || "").slice(0, 60),
+        has_name: !!profile.name
+      });
+    }
+
     // Eventos de asignación/cierre (si tu WATI los manda así)
     if (eventType === "chat_assigned") {
       handoff.active = true;
@@ -792,6 +865,12 @@ app.post("/whatsapp", async (req, res) => {
         handoff.notified = true;
         saveHandoffState();
         console.log("👤 Handoff activado:", req.body.operatorName);
+        logEvent("handoff_triggered", {
+          from,
+          mode: "auto_human_response",
+          operator: req.body.operatorName || null,
+          state_at_handoff: userState[from]
+        });
       }
       return res.sendStatus(200);
     }
@@ -810,6 +889,13 @@ app.post("/whatsapp", async (req, res) => {
       handoff.until = Date.now() + HANDOFF_DURATION_MS;
       if (!wasActive) handoff.notified = false;
       saveHandoffState();
+      if (!wasActive) {
+        logEvent("handoff_triggered", {
+          from,
+          mode: "manual_tomar",
+          state_at_handoff: userState[from]
+        });
+      }
       return res.sendStatus(200);
     }
 
@@ -878,34 +964,37 @@ app.post("/whatsapp", async (req, res) => {
 
         if (wantsAlpadel && !wantsCotorreo) {
           await sendWatiMessage(from,
-            `🎾 ¡Claro, ${firstName}! Reserva tu cancha aquí:\n\n` +
+            `🎾 ¡Dale, ${firstName}! Reservá tu cancha acá:\n\n` +
             `👉 ${ALPADEL_FORM_URL}\n\n` +
-            `Llena los datos y te confirmamos por este mismo chat en un momento.\n\n` +
-            `Si prefieres que te atienda una persona, escribe *asesor*.`
+            `Llená los datos y te confirmamos por este mismo chat en un momento.\n\n` +
+            `Si preferís que te atienda una persona, escribí *asesor*.`
           );
           userState[from] = "MENU_PRINCIPAL";
+          logEvent("reservation_link_sent", { from, kind: "alpadel" });
           return res.sendStatus(200);
         }
 
         if (wantsCotorreo && !wantsAlpadel) {
           await sendWatiMessage(from,
-            `🍽️ ¡Claro, ${firstName}! Reserva tu mesa aquí:\n\n` +
+            `🍽️ ¡Dale, ${firstName}! Reservá tu mesa acá:\n\n` +
             `👉 ${COTORREO_FORM_URL}\n\n` +
-            `Llena los datos y te confirmamos por este mismo chat en un momento.\n\n` +
-            `Si prefieres que te atienda una persona, escribe *asesor*.`
+            `Llená los datos y te confirmamos por este mismo chat en un momento.\n\n` +
+            `Si preferís que te atienda una persona, escribí *asesor*.`
           );
           userState[from] = "MENU_PRINCIPAL";
+          logEvent("reservation_link_sent", { from, kind: "cotorreo" });
           return res.sendStatus(200);
         }
 
         // Ambiguo: solo dijo "reservar" sin contexto, o mencionó ambos
         await sendWatiMessage(from,
-          `👋 ¡Hola ${firstName}! ¿Para qué quieres reservar?\n\n` +
+          `👋 ¡Hola ${firstName}! ¿Para qué querés reservar?\n\n` +
           `🎾 *Cancha de pádel en Alpadel:*\n👉 ${ALPADEL_FORM_URL}\n\n` +
           `🍽️ *Mesa en Plaza Cotorreo:*\n👉 ${COTORREO_FORM_URL}\n\n` +
-          `Si prefieres hablar con una persona, escribe *asesor*.`
+          `Si preferís hablar con una persona, escribí *asesor*.`
         );
         userState[from] = "MENU_PRINCIPAL";
+        logEvent("reservation_link_sent", { from, kind: "ambiguous" });
         return res.sendStatus(200);
       }
     }
@@ -920,13 +1009,19 @@ app.post("/whatsapp", async (req, res) => {
     }
 
     if (routeDecision.route === "candidate_for_ai" && !hasActiveFlow && containsBlockedAIIntent(text)) {
-      await sendWatiMessage(from, "Para ayudarte con información exacta, por favor elige una opción del menú 👇\n\n1️⃣ 🍽️ Comer en Plaza Cotorreo\n2️⃣ 🎾 Jugar pádel en Alpadel\n3️⃣ 👤 Hablar con un asesor");
+      logEvent("ai_blocked_intent_routed_to_menu", { from, text_preview: (text || "").slice(0, 60) });
+      await sendWatiMessage(from, "Para ayudarte con información exacta, elegí una opción del menú 👇\n\n1️⃣ 🍽️ Comer en Plaza Cotorreo\n2️⃣ 🎾 Jugar pádel en Alpadel\n3️⃣ 👤 Hablar con un asesor");
       return res.sendStatus(200);
     }
 
     if (routeDecision.route === "candidate_for_ai" && !hasActiveFlow) {
       try {
         console.log("AI candidate:", text);
+        logEvent("ai_fallback_triggered", {
+          from,
+          state: userState[from],
+          text_preview: (text || "").slice(0, 80)
+        });
 
         const aiReply = await getSimpleAIReply(text);
 
@@ -937,7 +1032,7 @@ app.post("/whatsapp", async (req, res) => {
         console.error("AI error:", error.message);
 
         await sendWatiMessage(from,
-          "No entendí del todo tu mensaje 🤔\n\n¿Qué te gustaría hacer?\n\n1️⃣ 🍽️ Comer en Plaza Cotorreo\n2️⃣ 🎾 Jugar pádel en Alpadel\n3️⃣ 👤 Hablar con un asesor"
+          "No te entendí 🤔 ¿Era sobre comida, reservar o hablar con alguien?\n\n1️⃣ 🍽️ Comer en Plaza Cotorreo\n2️⃣ 🎾 Jugar pádel en Alpadel\n3️⃣ 👤 Hablar con un asesor"
         );
 
         return res.sendStatus(200);
