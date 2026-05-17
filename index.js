@@ -289,14 +289,16 @@ function getClosedNotice() {
 // "PROMOCIONES" del README operativo.
 function getPromoDelDia() {
   const dow = getPlazaSchedule().dow; // 0=domingo … 6=sábado
+  // Copy de marketing: voseo CR, beneficio claro, gancho emocional.
+  // Se ven arriba del menú principal cuando Plaza está abierta.
   const promos = {
-    0: "🌅 *Domingo familiar Alpadel*: ₡6.000 todo el día — y *Desayuno + Pádel* ₡20.000 (8am–12md, dobles 1h + 4 desayunos + palas)",
-    1: "🌮 *2x1 Tacos al Pastor*: compra 4, llevás 8",
-    2: "🍣 *2x1 Sushi*: compra 1 rollo, llevás 2",
-    3: "🥩 *2x1 Quesabirrias*: compra 5, llevás 10",
-    4: "🍔 *3x2 Hamburguesas*: compra 2, llevás 3",
-    5: "🎾 *Glow Pádel Viernes*: ₡5.000 p/p (1.5h + 1 bebida + pala, requiere reserva) · 🍺 *Baldazo Nacional* ₡6.000 (6 cervezas)",
-    6: "🍽️ *Almuerzo Ejecutivo* L–V ₡3.800 · 🎾 *Pádel + Bebidas* L–V 4pm–10pm" // sábado tiene promos diarias
+    0: "🌅 *Domingo de familia*: cancha de pádel ₡6.000 todo el día en Alpadel + *Desayuno + Pádel* a ₡20.000 (1h cancha, 4 desayunos y palas, 8am–12md). Mañana o tarde, vení sin apuro 💛",
+    1: "🌮 *Lunes al pastor*: pedís 4 tacos y *te llevás 8*. Trompo, piña y limón — la cura para empezar la semana 💪",
+    2: "🍣 *Martes sushiero*: rollo + rollo gratis. Pedís 1 y *te llevás 2* — perfecto para vos y un cómplice 🤝",
+    3: "🥩 *Miércoles de birria*: 2x1 en quesabirrias. Pedís 5, *te llevás 10*, con consomé bien caliente para hundir 🔥",
+    4: "🍔 *Jueves burger*: 3x2 en hamburguesas. Pedís 2, *llegan 3 a la mesa*. La excusa perfecta para llamar al trío 👊",
+    5: "🎾 *Viernes Glow Pádel*: cancha en luz negra ₡5.000 p/p (1.5h + bebida + pala, reservá ya — cupo limitado) 🌟  ·  🍺 *Baldazo Nacional*: 6 cervezas a ₡6.000 para arrancar el finde frío ❄️",
+    6: "🌃 *Sábado sin reglas*: cocina abierta hasta medianoche. Vení a comer, quedate a tomar — menú completo, birra fría, y el ambiente que sabés 🍻"
   };
   return promos[dow] || "";
 }
@@ -1093,9 +1095,9 @@ app.post("/whatsapp", async (req, res) => {
         userState[from] = "ASESOR";
 
         await sendWatiMessage(from,
-          `🎈 ¡Qué bueno, ${firstName}! Para fiestas y eventos te conecta directo *Mariela* (nuestra encargada de eventos).\n\n` +
+          `🎈 ¡Qué bueno, ${firstName}! Para fiestas y eventos te conecta directo *Sofía* (nuestra encargada de eventos).\n\n` +
           `Mirá el catálogo de paquetes mientras:\n👉 https://drive.google.com/open?id=11xvFT0-drZTnJl_ixFE5FOy8PS_ewnwV\n\n` +
-          `En breve te escribe Mariela por este chat. ✨`
+          `En breve te escribe Sofía por este chat. ✨`
         );
         logEvent("event_handoff_triggered", { from, kind: "evento_fiesta" });
         logEvent("handoff_triggered", { from, mode: "auto_event_keyword", state_at_handoff: "ASESOR" });
