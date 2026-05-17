@@ -247,12 +247,11 @@ function containsBlockedAIIntent(text) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
+  // F1.6 — Sólo bloqueamos intentos que requieren handoff humano directo.
+  // "reservar"/"reserva" ahora SÍ van a la IA (que redirige al link de la app
+  // y no aluciña sobre disponibilidad). El interceptor de palabras clave de
+  // reservas igual sigue actuando antes para mandar el deep-link con teléfono.
   return [
-   "reservar",
-    "reserva",
-    "clases",
-    "entrenador",
-    "profesor",
     "hablar con una persona",
     "quiero hablar con una persona",
     "hablar con alguien",
@@ -1309,26 +1308,19 @@ app.post("/whatsapp", async (req, res) => {
 
       if (wantsEvento && !hasActiveUserFlow(userState[from], profile)) {
         const firstName = (profile.name || "").split(" ")[0];
-        const handoff = getUserHandoff(from);
-        handoff.active = true;
-        handoff.until = Date.now() + HANDOFF_DURATION_MS;
-        handoff.notified = true;
-        saveHandoffState();
-        userState[from] = "ASESOR";
+        // F1.6 — Ya NO activamos handoff automático aquí. Mandamos el catálogo
+        // y dejamos que el cliente decida si quiere humano (escribiendo "asesor").
+        // Mantenemos al cliente en MENU_PRINCIPAL para que pueda seguir conversando.
+        userState[from] = "MENU_PRINCIPAL";
 
         await sendWatiMessage(from,
-          `🎈 ¡Qué bueno, ${firstName}! Para fiestas y eventos te conecta directo *Sofía* (nuestra encargada de eventos).\n\n` +
-          `Mirá el catálogo de paquetes mientras:\n👉 https://drive.google.com/open?id=11xvFT0-drZTnJl_ixFE5FOy8PS_ewnwV\n\n` +
-          `En breve te escribe Sofía por este chat. ✨`
+          `🎈 ¡Qué bueno, ${firstName}! Mirá los paquetes de fiestas acá:\n\n` +
+          `👉 https://drive.google.com/open?id=11xvFT0-drZTnJl_ixFE5FOy8PS_ewnwV\n\n` +
+          `Para coordinar tu evento (fecha, precio, detalles), escribí *asesor* y te ponemos en contacto. 🎉`
         );
-        logEvent("event_handoff_triggered", { from, kind: "evento_fiesta" });
-        logEvent("handoff_triggered", { from, mode: "auto_event_keyword", state_at_handoff: "ASESOR" });
-        notifyHandoffAlert({
-          reason: "🎈 Evento / Fiesta",
-          clientPhone: from,
-          clientName: profile.name,
-          originalText: rawText
-        }).catch(e => console.log("alert error:", e?.message));
+        logEvent("event_info_sent", { from, kind: "evento_fiesta" });
+        // F1.6 — Ya NO disparamos notifyHandoffAlert aquí. El alert al staff
+        // solo va cuando el cliente escribe "asesor" explícitamente.
         return res.sendStatus(200);
       }
     }
@@ -1357,7 +1349,19 @@ app.post("/whatsapp", async (req, res) => {
           text_preview: (text || "").slice(0, 80)
         });
 
-        const aiReply = await getSimpleAIReply(text);
+        // F1.6 — Pasamos contexto dinámico calculado en código (no en prompt)
+        // para que la IA tenga la promo del día, el estado abierto/cerrado
+        // y el día actual exactos. Esto previene alucinaciones sobre promos.
+        const schedule = getPlazaSchedule();
+        const diaSemana = new Date().toLocaleDateString("es-CR", {
+          weekday: "long",
+          timeZone: "America/Costa_Rica"
+        });
+        const aiReply = await getSimpleAIReply(text, {
+          diaSemana,
+          plazaAbierto: schedule.isOpen,
+          promoDelDia: getPromoDelDia()
+        });
 
         await sendWatiMessage(from, aiReply);
 
@@ -1446,33 +1450,20 @@ app.post("/whatsapp", async (req, res) => {
     // ================================
     if (userState[from] === "PLAZA_MENU") {
       if (text === "1") {
-        // A — Quitar el carrito (2026-05-16). Antes el bot llevaba al
-        // cliente por 18 categorías + carrito + SINPE. Decisión de Vicente:
-        // reemplazar por link a Linktree (menú completo) + handoff a asesor
-        // humano. El cliente ve el menú, decide, y un humano coordina el
-        // pedido. Eso reduce abandono y compite mejor contra Glovo/Uber.
+        // A — Carrito quitado (2026-05-16). El cliente ve el menú completo
+        // en Linktree. F1.6 (2026-05-17): ya NO activamos handoff automático
+        // aquí. Mandamos el link y dejamos que el cliente decida si quiere
+        // hablar con un humano (escribiendo "asesor").
         const firstNamePedido = (profile.name || "").split(" ")[0];
-        const handoffPedido = getUserHandoff(from);
-        handoffPedido.active = true;
-        handoffPedido.until = Date.now() + HANDOFF_DURATION_MS;
-        handoffPedido.notified = true;
-        saveHandoffState();
-        userState[from] = "ASESOR";
+        userState[from] = "MENU_PRINCIPAL";
 
         await sendWatiMessage(from,
           `🍽️ ¡Dale, ${firstNamePedido}! Acá tenés el menú completo:\n\n` +
           `👉 ${PLAZA_MENU_LINK}\n\n` +
-          `Para hacer tu pedido, te conectamos directo con un asesor que te ayuda por este mismo chat 💛\n\n` +
-          `En breve te escribe.`
+          `Si querés hacer tu pedido con un asesor, escribí *asesor* y te ponemos en contacto.\n\n` +
+          `Si querés saber precios o ver opciones, preguntame nomás.`
         );
-        logEvent("order_handoff_triggered", { from, source: "plaza_menu_option_1" });
-        logEvent("handoff_triggered", { from, mode: "auto_order_request", state_at_handoff: "ASESOR" });
-        notifyHandoffAlert({
-          reason: "🍽️ Pedido pendiente",
-          clientPhone: from,
-          clientName: profile.name,
-          originalText: "Tocó '1 Menú y realizar pedido'"
-        }).catch(e => console.log("alert error:", e?.message));
+        logEvent("menu_link_sent", { from, source: "plaza_menu_option_1" });
         return res.sendStatus(200);
       }
 
