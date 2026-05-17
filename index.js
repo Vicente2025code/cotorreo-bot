@@ -1098,6 +1098,28 @@ app.post("/whatsapp", async (req, res) => {
     const isNew = await redis.set(`dedup:${messageId}`, "1", { nx: true, ex: 300 });
     if (!isNew) return res.sendStatus(200);
 
+    // F1.6 — Ignorar mensajes "viejos" que WATI re-encoló post-redeploy o tras
+    // downtime. Si el cliente escribió hace >2 minutos, ya no está esperando
+    // respuesta y mandarle algo ahora genera mensajes "fantasma" confusos.
+    // Solo aplica a mensajes entrantes del cliente (no a sessionMessageSent
+    // ni eventos del sistema).
+    const isClientMessage = !eventType || eventType === "message" || eventType === "message_received";
+    if (isClientMessage && req.body?.timestamp) {
+      const msgTimestampSec = parseInt(req.body.timestamp, 10);
+      if (msgTimestampSec > 0) {
+        const ageSec = Math.floor(Date.now() / 1000) - msgTimestampSec;
+        if (ageSec > 120) {
+          console.log(`⏭️ Mensaje viejo ignorado (${ageSec}s atrás): "${(rawText || "").slice(0, 40)}"`);
+          logEvent("stale_message_ignored", {
+            from,
+            age_seconds: ageSec,
+            text_preview: (rawText || "").slice(0, 40)
+          });
+          return res.sendStatus(200);
+        }
+      }
+    }
+
     // ================================
     // INICIALIZAR ESTADO
     // ================================
