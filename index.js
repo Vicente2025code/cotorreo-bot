@@ -354,57 +354,6 @@ async function sendMenuPrincipal(to, name) {
   await sendWatiMessage(to, getMenuPrincipalText(name));
 }
 
-// F1.4 — Submenú Plaza Cotorreo con List Message
-const PLAZA_MENU_ROWS = [
-  { id: "1", title: "🍽️ Menú y pedido",   description: "Te conectamos con un asesor" },
-  { id: "2", title: "🎉 Promociones",      description: "Promos del día y semana" },
-  { id: "3", title: "⏰ Horarios",          description: "Cuándo estamos abiertos" },
-  { id: "4", title: "📍 Ubicación",         description: "Cómo llegar" },
-  { id: "5", title: "📅 Reservas",          description: "Reservar mesa" },
-  { id: "6", title: "🎈 Paquetes fiestas",  description: "Cumples y eventos" },
-  { id: "9", title: "↩️ Volver al inicio",  description: "Menú principal" }
-];
-
-async function sendPlazaMenu(to) {
-  const ok = await sendWatiListMessage(to, {
-    header: "🏢 Plaza Cotorreo",
-    body: "¿En qué te podemos ayudar?",
-    buttonText: "Ver opciones",
-    rows: PLAZA_MENU_ROWS
-  });
-  if (ok) {
-    logEvent("plaza_menu_sent", { to, mode: "interactive_list" });
-    return;
-  }
-  logEvent("plaza_menu_sent", { to, mode: "text_fallback" });
-  await sendWatiMessage(to, PLAZA_MENU_TEXT);
-}
-
-// F1.4 — Submenú Alpadel con List Message
-const ALPADEL_MENU_ROWS = [
-  { id: "1", title: "💰 Precios",            description: "Tarifas por horario" },
-  { id: "2", title: "✅ Reservar cancha",    description: "Hacer reserva ahora" },
-  { id: "3", title: "🎾 Clases",             description: "Info de clases con maestros" },
-  { id: "4", title: "🎉 Promociones",        description: "Glow pádel, paquetes y más" },
-  { id: "5", title: "🎈 Paquetes fiestas",   description: "Eventos en Alpadel" },
-  { id: "9", title: "↩️ Volver al inicio",   description: "Menú principal" }
-];
-
-async function sendAlpadelMenu(to) {
-  const ok = await sendWatiListMessage(to, {
-    header: "🎾 Alpadel",
-    body: "¿Qué te gustaría hacer?",
-    buttonText: "Ver opciones",
-    rows: ALPADEL_MENU_ROWS
-  });
-  if (ok) {
-    logEvent("alpadel_menu_sent", { to, mode: "interactive_list" });
-    return;
-  }
-  logEvent("alpadel_menu_sent", { to, mode: "text_fallback" });
-  await sendWatiMessage(to, ALPADEL_MENU_TEXT);
-}
-
 function getUserReservation(from) {
   return userReservations[from] || null;
 }
@@ -986,64 +935,6 @@ async function sendWatiButtonsMessage(to, { header, body, footer, buttons }) {
 }
 
 // ================================
-// ENVÍO DE INTERACTIVE LIST MESSAGE (F1.4 — submenús)
-// Hasta 10 opciones tocables. Cliente abre la lista y selecciona.
-// Retorna true si OK, false para que el caller decida fallback.
-// ================================
-async function sendWatiListMessage(to, { header, body, footer, buttonText, rows }) {
-  const token = process.env.WATI_TOKEN;
-  const baseEndpoint = process.env.WATI_ENDPOINT;
-  const tenantId = "1085608";
-
-  if (!token || !baseEndpoint) {
-    console.log("⚠️ WATI no configurado, no se envía list");
-    return false;
-  }
-  if (!rows || rows.length === 0 || rows.length > 10) {
-    console.log("⚠️ List message: cantidad de rows inválida (1-10)");
-    return false;
-  }
-
-  const whatsappNumber = String(to).replace(/\D/g, "");
-  const endpoint = `${baseEndpoint}/${tenantId}/api/v1/sendInteractiveListMessage?whatsappNumber=${whatsappNumber}`;
-
-  const payload = {
-    header: String(header || "").slice(0, 60),
-    body: String(body || "").slice(0, 1024),
-    footer: footer ? String(footer).slice(0, 60) : undefined,
-    sections: [{
-      buttonText: String(buttonText || "Ver opciones").slice(0, 20),
-      rows: rows.map(r => ({
-        rowId: String(r.id),
-        title: String(r.title).slice(0, 24),
-        description: r.description ? String(r.description).slice(0, 72) : undefined
-      }))
-    }]
-  };
-
-  try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    });
-    const text = await response.text();
-    console.log("📨 WATI list status:", response.status);
-    if (response.status >= 400) {
-      console.log("📨 WATI list error:", text);
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.log("❌ Error enviando list:", err?.message || err);
-    return false;
-  }
-}
-
-// ================================
 // ALERT DE HANDOFF AL STAFF
 // Llamado cada vez que se activa handoff humano (pedido, evento, asesor).
 // Usa el template "staff_alerta" ya aprobado en WATI.
@@ -1521,12 +1412,12 @@ app.post("/whatsapp", async (req, res) => {
     if (userState[from] === "MENU_PRINCIPAL") {
       if (text === "1") {
         userState[from] = "PLAZA_MENU";
-        await sendPlazaMenu(from);
+        await sendWatiMessage(from, PLAZA_MENU_TEXT);
         return res.sendStatus(200);
       }
       if (text === "2") {
         userState[from] = "ALPADEL_MENU";
-        await sendAlpadelMenu(from);
+        await sendWatiMessage(from, ALPADEL_MENU_TEXT);
         return res.sendStatus(200);
       }
       if (text === "3") {
@@ -1628,7 +1519,7 @@ app.post("/whatsapp", async (req, res) => {
         return res.sendStatus(200);
       }
 
-      await sendPlazaMenu(from);
+      await sendWatiMessage(from, PLAZA_MENU_TEXT);
       return res.sendStatus(200);
     }
 
@@ -1638,7 +1529,7 @@ app.post("/whatsapp", async (req, res) => {
     if (userState[from] === "PLAZA_MENU_CATEGORIES") {
       if (text === "9") {
         userState[from] = "PLAZA_MENU";
-        await sendPlazaMenu(from);
+        await sendWatiMessage(from, PLAZA_MENU_TEXT);
         return res.sendStatus(200);
       }
       if (text === "0") {
@@ -1954,7 +1845,7 @@ app.post("/whatsapp", async (req, res) => {
 
       if (text === "9") {
         userState[from] = "ALPADEL_MENU";
-        await sendAlpadelMenu(from);
+        await sendWatiMessage(from, ALPADEL_MENU_TEXT);
         return res.sendStatus(200);
       }
 
@@ -2246,7 +2137,7 @@ if (userState[from] === "RESERVA_DURACION") {
     // ================================
     if (userState[from].startsWith("PLAZA_") && text === "9") {
       userState[from] = "PLAZA_MENU";
-      await sendPlazaMenu(from);
+      await sendWatiMessage(from, PLAZA_MENU_TEXT);
       return res.sendStatus(200);
     }
 
@@ -2336,7 +2227,7 @@ if (userState[from] === "RESERVA_DURACION") {
         return res.sendStatus(200);
       }
 
-      await sendAlpadelMenu(from);
+      await sendWatiMessage(from, ALPADEL_MENU_TEXT);
       return res.sendStatus(200);
     }
 
@@ -2345,7 +2236,7 @@ if (userState[from] === "RESERVA_DURACION") {
     // ================================
     if (userState[from].startsWith("ALPADEL_") && text === "9") {
       userState[from] = "ALPADEL_MENU";
-      await sendAlpadelMenu(from);
+      await sendWatiMessage(from, ALPADEL_MENU_TEXT);
       return res.sendStatus(200);
     }
 
