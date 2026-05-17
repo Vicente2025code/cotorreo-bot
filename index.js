@@ -284,8 +284,34 @@ function getClosedNotice() {
   return `⏰ *Plaza Cotorreo está cerrado ahora.* Abrimos hoy a las ${openLabel}.\nMientras tanto, te dejo el menú para que vayás viendo 👇\n\n`;
 }
 
+// F1.3 — Promo del día. Calculada en código (no en prompt LLM) para evitar
+// alucinaciones. Fuente: system prompt del aiFallbackService + sección
+// "PROMOCIONES" del README operativo.
+function getPromoDelDia() {
+  const dow = getPlazaSchedule().dow; // 0=domingo … 6=sábado
+  const promos = {
+    0: "🌅 *Domingo familiar Alpadel*: ₡6.000 todo el día — y *Desayuno + Pádel* ₡20.000 (8am–12md, dobles 1h + 4 desayunos + palas)",
+    1: "🌮 *2x1 Tacos al Pastor*: compra 4, llevás 8",
+    2: "🍣 *2x1 Sushi*: compra 1 rollo, llevás 2",
+    3: "🥩 *2x1 Quesabirrias*: compra 5, llevás 10",
+    4: "🍔 *3x2 Hamburguesas*: compra 2, llevás 3",
+    5: "🎾 *Glow Pádel Viernes*: ₡5.000 p/p (1.5h + 1 bebida + pala, requiere reserva) · 🍺 *Baldazo Nacional* ₡6.000 (6 cervezas)",
+    6: "🍽️ *Almuerzo Ejecutivo* L–V ₡3.800 · 🎾 *Pádel + Bebidas* L–V 4pm–10pm" // sábado tiene promos diarias
+  };
+  return promos[dow] || "";
+}
+
+function getPromoNotice() {
+  // Solo mostrar si Plaza está abierto. Si está cerrado, el aviso de cerrado
+  // ya tiene la atención — no queremos saturar al cliente con info simultánea.
+  if (!getPlazaSchedule().isOpen) return "";
+  const promo = getPromoDelDia();
+  if (!promo) return "";
+  return `🎉 *Hoy:* ${promo}\n\n`;
+}
+
 function getMenuPrincipalText(name) {
-  const notice = getClosedNotice();
+  const notice = getClosedNotice() || getPromoNotice();
   if (!name) return notice + MENU_PRINCIPAL_TEXT;
   return notice + MENU_PRINCIPAL_TEXT.replace(
     "¡Bienvenido a *Grupo Cotorreo*!",
@@ -812,10 +838,25 @@ function normalizeWatiPayload(body) {
     b.messages?.[0]?.body ||
     "";
 
+  // senderName: nombre del contacto desde WhatsApp.
+  // Distintos shapes según versión del webhook de WATI / WhatsApp Cloud API.
+  const senderName =
+    b.senderName ||
+    b.sender_name ||
+    b.waName ||
+    b.wa_name ||
+    b.name ||
+    b.contact?.name ||
+    b.contact?.profile?.name ||
+    b.contacts?.[0]?.profile?.name ||
+    b.contacts?.[0]?.name ||
+    null;
+
   return {
     eventType: typeof eventType === "string" ? eventType : null,
     from: from ? String(from).trim() : null,
-    rawText: (rawText || "").toString()
+    rawText: (rawText || "").toString(),
+    senderName: senderName ? String(senderName).trim() : null
   };
 }
 
@@ -826,7 +867,7 @@ app.post("/whatsapp", async (req, res) => {
   // Regla: WATI debe recibir 200 siempre.
   try {
     console.log("📥 WEBHOOK RAW:", JSON.stringify(req.body, null, 2));
-    const { eventType, from, rawText } = normalizeWatiPayload(req.body);
+    const { eventType, from, rawText, senderName } = normalizeWatiPayload(req.body);
     const text = rawText.trim().toLowerCase();
 
     if (!from) return res.sendStatus(200);
@@ -946,6 +987,19 @@ app.post("/whatsapp", async (req, res) => {
       return res.sendStatus(200);
     }
 
+    // F1.8 — Si no tenemos el nombre del cliente, intentar leerlo del payload
+    // de WATI (lo trae como senderName / contact.profile.name según versión).
+    // Solo si el campo viene vacío caemos al fallback de preguntárselo.
+    if (!profile.name && senderName) {
+      const candidate = senderName.replace(/\d+/g, "").trim();
+      // descartar "WhatsApp User", números puros o cosas raras
+      if (candidate && candidate.length >= 2 && candidate.length <= 60 &&
+          !/^whatsapp\s*user$/i.test(candidate)) {
+        profile.name = candidate.split(" ").slice(0, 3).join(" "); // máx 3 palabras
+        logEvent("name_autopopulated", { from, source: "wati_payload" });
+      }
+    }
+
     if (!profile.name) {
       userState[from] = "ASK_NAME";
       await sendWatiMessage(from, getNamePrompt());
@@ -1009,6 +1063,42 @@ app.post("/whatsapp", async (req, res) => {
         );
         userState[from] = "MENU_PRINCIPAL";
         logEvent("reservation_link_sent", { from, kind: "ambiguous" });
+        return res.sendStatus(200);
+      }
+    }
+
+    // ================================
+    // F1.9 — INTERCEPTOR DE EVENTOS / FIESTAS
+    // Paquetes de eventos son ticket alto (~₡100k+). Antes estaban
+    // escondidos en opción 6 del submenú Plaza con link a Drive.
+    // Ahora detectamos keywords y mandamos handoff directo + catálogo.
+    // ================================
+    {
+      const normalizedEv = (text || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[¡!¿?]/g, "")
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "");
+
+      const wantsEvento = /(\bcumple\b|\bcumpleanos\b|\bcumpleaños\b|\bfiesta\b|\bfiestas\b|\bevento\b|\beventos\b|\bquinceanos\b|\bquinceaños\b|\baniversario\b|\bbautizo\b|\bgraduacion\b|\bgraduación\b|\bpaquete\b|\bpaquetes\b)/.test(normalizedEv);
+
+      if (wantsEvento && !hasActiveUserFlow(userState[from], profile)) {
+        const firstName = (profile.name || "").split(" ")[0];
+        const handoff = getUserHandoff(from);
+        handoff.active = true;
+        handoff.until = Date.now() + HANDOFF_DURATION_MS;
+        handoff.notified = true;
+        saveHandoffState();
+        userState[from] = "ASESOR";
+
+        await sendWatiMessage(from,
+          `🎈 ¡Qué bueno, ${firstName}! Para fiestas y eventos te conecta directo *Mariela* (nuestra encargada de eventos).\n\n` +
+          `Mirá el catálogo de paquetes mientras:\n👉 https://drive.google.com/open?id=11xvFT0-drZTnJl_ixFE5FOy8PS_ewnwV\n\n` +
+          `En breve te escribe Mariela por este chat. ✨`
+        );
+        logEvent("event_handoff_triggered", { from, kind: "evento_fiesta" });
+        logEvent("handoff_triggered", { from, mode: "auto_event_keyword", state_at_handoff: "ASESOR" });
         return res.sendStatus(200);
       }
     }
