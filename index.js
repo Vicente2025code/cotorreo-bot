@@ -32,6 +32,53 @@ const userReservations = {};
 const userReservationDraft = {};
 const userHandoff = {};
 
+// ================================
+// MODO DEMO (para portafolio embebido)
+// Las sesiones con prefijo "demo:" NO envían a WATI — capturan en buffer
+// y devuelven al cliente web. Mismo flujo conversacional que el bot real,
+// pero sin contactar WhatsApp ni Redis para handoff.
+// ================================
+const demoSessions = {}; // sessionId -> { buffer: [], updatedAt: timestamp }
+
+function isDemoSession(id) {
+  return typeof id === "string" && id.startsWith("demo:");
+}
+
+function pushDemoReply(sessionId, msg) {
+  if (!demoSessions[sessionId]) {
+    demoSessions[sessionId] = { buffer: [], updatedAt: Date.now() };
+  }
+  demoSessions[sessionId].buffer.push(msg);
+  demoSessions[sessionId].updatedAt = Date.now();
+}
+
+function drainDemoBuffer(sessionId) {
+  const s = demoSessions[sessionId];
+  if (!s) return [];
+  const out = s.buffer;
+  s.buffer = [];
+  s.updatedAt = Date.now();
+  return out;
+}
+
+// Limpieza de sesiones demo viejas (>30 min sin actividad)
+setInterval(() => {
+  const now = Date.now();
+  const MAX_AGE = 30 * 60 * 1000;
+  for (const id of Object.keys(demoSessions)) {
+    if (now - demoSessions[id].updatedAt > MAX_AGE) {
+      delete demoSessions[id];
+      delete userState[id];
+      delete userCart[id];
+      delete userMeta[id];
+      delete userProfile[id];
+      delete userReservations[id];
+      delete userReservationDraft[id];
+      delete userHandoff[id];
+    }
+  }
+}, 5 * 60 * 1000);
+
 async function loadHandoffState() {
   try {
     const data = await redis.get("handoff_state");
@@ -45,7 +92,12 @@ async function loadHandoffState() {
 
 async function saveHandoffState() {
   try {
-    await redis.set("handoff_state", JSON.stringify(userHandoff));
+    // Filtrar sesiones demo — no las persistimos en Redis (son volátiles)
+    const realOnly = {};
+    for (const k of Object.keys(userHandoff)) {
+      if (!isDemoSession(k)) realOnly[k] = userHandoff[k];
+    }
+    await redis.set("handoff_state", JSON.stringify(realOnly));
   } catch (e) {
     console.log("Error guardando handoff state:", e.message);
   }
@@ -780,6 +832,16 @@ function getCheckoutText(from, cart) {
 // ENVIO MENSAJES WATI
 // ================================
 async function sendWatiMessage(to, message) {
+  // Modo demo: capturar en buffer en lugar de mandar a WATI
+  if (isDemoSession(to)) {
+    const safeMessage = (message === undefined || message === null) ? "" : String(message);
+    const trimmed = safeMessage.trim();
+    if (trimmed.length) {
+      pushDemoReply(to, { type: "text", text: trimmed });
+    }
+    return;
+  }
+
   const token = process.env.WATI_TOKEN;          // SOLO el token (sin "Bearer")
   const baseEndpoint = process.env.WATI_ENDPOINT; // Ej: https://live-mt-server.wati.io
   const tenantId = "1085608";
@@ -837,6 +899,16 @@ const payload = new URLSearchParams({
 // El template debe estar aprobado por Meta vía WATI panel.
 // ================================
 async function sendWatiTemplate(to, templateName, paramValues = []) {
+  // Modo demo: representar el template como texto plano en el chat
+  if (isDemoSession(to)) {
+    pushDemoReply(to, {
+      type: "template",
+      templateName: String(templateName || ""),
+      text: `📄 *Plantilla:* ${templateName}\n${paramValues.map((v, i) => `  ${i + 1}. ${v}`).join("\n")}`
+    });
+    return;
+  }
+
   const token = process.env.WATI_TOKEN;
   const baseEndpoint = process.env.WATI_ENDPOINT;
   const tenantId = "1085608";
@@ -885,6 +957,21 @@ async function sendWatiTemplate(to, templateName, paramValues = []) {
 // Retorna true si se envió OK, false si falló (para que el caller use fallback).
 // ================================
 async function sendWatiButtonsMessage(to, { header, body, footer, buttons }) {
+  // Modo demo: capturar la estructura completa de botones para renderizar en el chat web
+  if (isDemoSession(to)) {
+    pushDemoReply(to, {
+      type: "buttons",
+      header: header || "",
+      body: body || "",
+      footer: footer || "",
+      buttons: (buttons || []).map(b => ({
+        id: b.id || b.text,
+        text: b.text || b.title || b.label || String(b)
+      }))
+    });
+    return true; // simular éxito
+  }
+
   const token = process.env.WATI_TOKEN;
   const baseEndpoint = process.env.WATI_ENDPOINT;
   const tenantId = "1085608";
@@ -1086,17 +1173,24 @@ function normalizeWatiPayload(body) {
 // ================================
 // WEBHOOK WHATSAPP (WATI)
 // ================================
-app.post("/whatsapp", async (req, res) => {
+// Handler extraído como función para poder invocarse desde /demo/message también
+async function whatsappHandler(req, res) {
   // Regla: WATI debe recibir 200 siempre.
   try {
-    console.log("📥 WEBHOOK RAW:", JSON.stringify(req.body, null, 2));
+    // En modo demo no logueamos el body crudo (es muy ruidoso)
+    if (!isDemoSession(req.body?.waId)) {
+      console.log("📥 WEBHOOK RAW:", JSON.stringify(req.body, null, 2));
+    }
     const { eventType, from, rawText, senderName } = normalizeWatiPayload(req.body);
     const text = rawText.trim().toLowerCase();
 
     if (!from) return res.sendStatus(200);
     const messageId = req.body?.id || req.body?.messages?.[0]?.id || `${from}_${rawText}_${Math.floor(Date.now() / 5000)}`;
-    const isNew = await redis.set(`dedup:${messageId}`, "1", { nx: true, ex: 300 });
-    if (!isNew) return res.sendStatus(200);
+    // Saltar dedup en Redis para sesiones demo (cada mensaje del visitante es siempre nuevo)
+    if (!isDemoSession(from)) {
+      const isNew = await redis.set(`dedup:${messageId}`, "1", { nx: true, ex: 300 });
+      if (!isNew) return res.sendStatus(200);
+    }
 
     // F1.6 — Ignorar mensajes "viejos" que WATI re-encoló post-redeploy o tras
     // downtime. Si el cliente escribió hace >2 minutos, ya no está esperando
@@ -2282,7 +2376,9 @@ if (userState[from] === "RESERVA_DURACION") {
     console.log("❌ Error en webhook /whatsapp:", err?.stack || err);
     return res.sendStatus(200);
   }
-});
+}
+
+app.post("/whatsapp", whatsappHandler);
 
 // Healthcheck útil para Render
 app.get("/tomar/:numero", (req, res) => {
@@ -2313,6 +2409,259 @@ app.get("/reset/:numero", async (req, res) => {
   redis.del("user_profiles").catch(() => {});
   res.send("✅ Perfil resetado para " + numero);
 });
+// ================================
+// DEMO EMBEBIBLE (para portafolio)
+// El demo reusa el mismo handler /whatsapp pero con un sessionId fake
+// y captura las respuestas en memoria en lugar de mandarlas a WATI.
+// ================================
+
+// Permitir CORS solo para los endpoints /demo (el portafolio vive en otro dominio)
+app.use("/demo", (req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.sendStatus(200);
+  next();
+});
+
+// POST /demo/message → recibe { sessionId, text } y devuelve { replies: [...] }
+// Invoca internamente el mismo handler que /whatsapp con un payload simulado.
+app.post("/demo/message", async (req, res) => {
+  try {
+    const { sessionId, text } = req.body || {};
+    if (!sessionId || typeof text !== "string") {
+      return res.status(400).json({ error: "sessionId and text required" });
+    }
+
+    const fakeFrom = "demo:" + String(sessionId).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 32);
+
+    // Construir payload tipo WATI
+    const fakeReq = {
+      body: {
+        waId: fakeFrom,
+        text: text,
+        senderName: "Visitante demo",
+        timestamp: String(Math.floor(Date.now() / 1000)),
+        id: fakeFrom + "_" + Date.now()
+      }
+    };
+    const fakeRes = {
+      statusCode: 200,
+      sendStatus(code) { this.statusCode = code; return this; },
+      status(code) { this.statusCode = code; return this; },
+      json() { return this; },
+      send() { return this; }
+    };
+
+    // Limpiar buffer previo antes de invocar
+    if (demoSessions[fakeFrom]) demoSessions[fakeFrom].buffer = [];
+
+    await whatsappHandler(fakeReq, fakeRes);
+
+    // Drenar las respuestas que el handler "envió" (interceptadas)
+    const replies = drainDemoBuffer(fakeFrom);
+
+    return res.json({ replies });
+  } catch (err) {
+    console.log("❌ Error en /demo/message:", err?.stack || err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// POST /demo/reset → limpia el estado del visitante (útil para "empezar de cero")
+app.post("/demo/reset", (req, res) => {
+  const { sessionId } = req.body || {};
+  if (!sessionId) return res.status(400).json({ error: "sessionId required" });
+  const fakeFrom = "demo:" + String(sessionId).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 32);
+  delete demoSessions[fakeFrom];
+  delete userState[fakeFrom];
+  delete userCart[fakeFrom];
+  delete userMeta[fakeFrom];
+  delete userProfile[fakeFrom];
+  delete userReservations[fakeFrom];
+  delete userReservationDraft[fakeFrom];
+  delete userHandoff[fakeFrom];
+  res.json({ ok: true });
+});
+
+// GET /demo → HTML del chat embebible
+app.get("/demo", (_req, res) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(DEMO_HTML);
+});
+
+// HTML del chat — minimal, WhatsApp-style, mismo look que la simulación del portafolio
+const DEMO_HTML = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Bot Grupo Cotorreo — Demo</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f0eeea;height:100vh;display:flex;align-items:center;justify-content:center;padding:8px;-webkit-font-smoothing:antialiased}
+  .phone{width:100%;max-width:420px;height:100%;max-height:640px;background:#111;border-radius:24px;padding:8px;box-shadow:0 8px 32px rgba(0,0,0,0.15);display:flex;flex-direction:column;overflow:hidden}
+  .phone-inner{flex:1;background:#ece5dd;border-radius:18px;overflow:hidden;display:flex;flex-direction:column}
+  .header{background:#075e54;padding:12px 14px;display:flex;align-items:center;gap:10px;color:#fff;flex-shrink:0}
+  .avatar{width:36px;height:36px;border-radius:50%;background:#25d366;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0}
+  .header-info{flex:1;min-width:0}
+  .header-name{font-size:14px;font-weight:500}
+  .header-status{font-size:11px;opacity:0.7}
+  .reset-btn{background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:14px;padding:5px 10px;font-size:11px;cursor:pointer;font-family:inherit}
+  .reset-btn:hover{background:rgba(255,255,255,0.25)}
+  .chat{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:6px;background-image:linear-gradient(rgba(229,221,213,0.85),rgba(229,221,213,0.85)),url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><circle cx='50' cy='50' r='1' fill='%23000' opacity='0.05'/></svg>")}
+  .bubble{max-width:80%;padding:8px 11px;border-radius:8px;font-size:14px;line-height:1.4;word-wrap:break-word;white-space:pre-wrap;animation:fadeIn 0.18s ease}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+  .bubble.user{align-self:flex-end;background:#dcf8c6;border-bottom-right-radius:2px;color:#111}
+  .bubble.bot{align-self:flex-start;background:#fff;border-bottom-left-radius:2px;color:#111;box-shadow:0 1px 0.5px rgba(0,0,0,0.08)}
+  .bubble.bot.template{background:#fff8e1;border-left:3px solid #f5c800}
+  .buttons-block{align-self:flex-start;background:#fff;border-radius:8px;border-bottom-left-radius:2px;padding:10px;max-width:85%;display:flex;flex-direction:column;gap:6px;box-shadow:0 1px 0.5px rgba(0,0,0,0.08)}
+  .buttons-block .body-text{font-size:14px;line-height:1.4;color:#111;white-space:pre-wrap;margin-bottom:4px}
+  .btn-chip{background:#fff;border:1px solid #25d366;color:#25d366;padding:8px 12px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;text-align:center}
+  .btn-chip:hover{background:#25d366;color:#fff}
+  .input-row{background:#f0f0f0;padding:8px 10px;display:flex;gap:8px;align-items:center;flex-shrink:0}
+  .input-row input{flex:1;border:none;border-radius:20px;padding:9px 14px;font-size:14px;outline:none;background:#fff;font-family:inherit}
+  .send-btn{background:#25d366;border:none;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;color:#fff}
+  .send-btn:hover{background:#1ebe57}
+  .typing{align-self:flex-start;display:flex;gap:3px;padding:10px 14px;background:#fff;border-radius:8px;border-bottom-left-radius:2px;box-shadow:0 1px 0.5px rgba(0,0,0,0.08)}
+  .typing span{width:6px;height:6px;border-radius:50%;background:#888;animation:typing 1.2s ease-in-out infinite}
+  .typing span:nth-child(2){animation-delay:0.2s}
+  .typing span:nth-child(3){animation-delay:0.4s}
+  @keyframes typing{0%,60%,100%{opacity:0.3;transform:scale(1)}30%{opacity:1;transform:scale(1.2)}}
+  .demo-badge{position:absolute;top:14px;left:14px;background:rgba(0,0,0,0.55);color:#fff;font-size:10px;padding:3px 8px;border-radius:99px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;pointer-events:none;z-index:10}
+</style>
+</head>
+<body>
+<div class="demo-badge">Demo en vivo</div>
+<div class="phone">
+  <div class="phone-inner">
+    <div class="header">
+      <div class="avatar">GC</div>
+      <div class="header-info">
+        <div class="header-name">Grupo Cotorreo</div>
+        <div class="header-status">demo del bot real</div>
+      </div>
+      <button class="reset-btn" onclick="resetChat()">Reiniciar</button>
+    </div>
+    <div class="chat" id="chat"></div>
+    <div class="input-row">
+      <input id="msg" type="text" placeholder="Escribe un mensaje..." onkeydown="if(event.key==='Enter')send()">
+      <button class="send-btn" onclick="send()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+const sessionId = "s" + Math.random().toString(36).slice(2, 12) + Date.now().toString(36).slice(-4);
+const chat = document.getElementById("chat");
+const input = document.getElementById("msg");
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function formatBotText(s) {
+  // Convertir *texto* en negrita y URLs en links
+  let html = escapeHtml(s);
+  html = html.replace(/\\*([^*\\n]+)\\*/g, "<strong>$1</strong>");
+  html = html.replace(/(https?:\\/\\/[^\\s]+)/g, '<a href="$1" target="_blank" style="color:#1f7cff">$1</a>');
+  return html;
+}
+
+function addUser(text) {
+  const div = document.createElement("div");
+  div.className = "bubble user";
+  div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function addBot(reply) {
+  if (reply.type === "buttons") {
+    const wrap = document.createElement("div");
+    wrap.className = "buttons-block";
+    if (reply.body) {
+      const bt = document.createElement("div");
+      bt.className = "body-text";
+      bt.innerHTML = formatBotText(reply.body);
+      wrap.appendChild(bt);
+    }
+    (reply.buttons || []).forEach(b => {
+      const btn = document.createElement("button");
+      btn.className = "btn-chip";
+      btn.textContent = b.text;
+      btn.onclick = () => sendText(b.text);
+      wrap.appendChild(btn);
+    });
+    chat.appendChild(wrap);
+  } else {
+    const div = document.createElement("div");
+    div.className = "bubble bot" + (reply.type === "template" ? " template" : "");
+    div.innerHTML = formatBotText(reply.text || "");
+    chat.appendChild(div);
+  }
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function showTyping() {
+  const t = document.createElement("div");
+  t.className = "typing";
+  t.id = "typing";
+  t.innerHTML = "<span></span><span></span><span></span>";
+  chat.appendChild(t);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function hideTyping() {
+  const t = document.getElementById("typing");
+  if (t) t.remove();
+}
+
+async function send() {
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  sendText(text);
+}
+
+async function sendText(text) {
+  addUser(text);
+  showTyping();
+  try {
+    const r = await fetch("/demo/message", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId, text })
+    });
+    const j = await r.json();
+    hideTyping();
+    (j.replies || []).forEach(addBot);
+  } catch (e) {
+    hideTyping();
+    addBot({ type: "text", text: "⚠️ Sin conexión al servidor demo." });
+  }
+}
+
+async function resetChat() {
+  chat.innerHTML = "";
+  try {
+    await fetch("/demo/reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId })
+    });
+  } catch (e) {}
+  setTimeout(() => sendText("hola"), 200);
+}
+
+// Iniciar conversación
+setTimeout(() => sendText("hola"), 400);
+</script>
+</body>
+</html>`;
+
 app.get("/", (req, res) => res.send("OK"));
 
 // ================================
