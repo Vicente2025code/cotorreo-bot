@@ -1,0 +1,150 @@
+// ================================
+// MUNDIAL 2026 HANDLER (additive, no toca flujo existente)
+// ================================
+// Intercepta mensajes de contactos en la lista de campaña Mundial 2026
+// y los responde con contexto relevante en lugar del menu principal del bot.
+//
+// Activacion: si el numero del 'from' esta en data/mundial_2026_recipients.json
+// Y el timestamp actual es anterior a `mundial_expires_at` del archivo.
+//
+// Salida del modo Mundial:
+//   - El cliente escribe "menu", "hola", "1", "2", "3" -> devolvemos {handled:false}
+//     y el bot principal le da el menu normal
+//   - Despues de la fecha de expiracion -> nadie en mundial mode
+//   - Cliente escribe BAJA -> WATI maneja opt-out (no respondemos)
+
+const fs = require("fs");
+const path = require("path");
+
+const DATA_PATH = path.join(__dirname, "..", "data", "mundial_2026_recipients.json");
+
+let cache = null;
+let cacheLoadedAt = 0;
+const CACHE_TTL_MS = 60 * 1000; // recargar cada 60s
+
+function loadRecipients() {
+  const now = Date.now();
+  if (cache && (now - cacheLoadedAt) < CACHE_TTL_MS) return cache;
+  try {
+    if (!fs.existsSync(DATA_PATH)) {
+      cache = { recipients: [], mundial_expires_at: 0 };
+      cacheLoadedAt = now;
+      return cache;
+    }
+    const raw = fs.readFileSync(DATA_PATH, "utf-8");
+    cache = JSON.parse(raw);
+    cacheLoadedAt = now;
+    return cache;
+  } catch (e) {
+    console.log("mundialHandler: error leyendo recipients", e.message);
+    cache = { recipients: [], mundial_expires_at: 0 };
+    cacheLoadedAt = now;
+    return cache;
+  }
+}
+
+function isRecipient(from) {
+  const data = loadRecipients();
+  if (Date.now() > (data.mundial_expires_at || 0)) return false;
+  // normalizar a solo digitos
+  const cleaned = String(from || "").replace(/\D/g, "");
+  return Array.isArray(data.recipients) && data.recipients.includes(cleaned);
+}
+
+const EXIT_WORDS = new Set([
+  "menu", "menú", "inicio", "0", "1", "2", "3", "9", "asesor",
+  "reservas", "carrito", "pedido", "orden", "plaza", "alpadel"
+]);
+
+const BAJA_WORDS = ["baja", "stop", "remover", "borrar", "unsubscribe", "salir lista"];
+
+function classify(text) {
+  const t = (text || "").toLowerCase().trim();
+  if (!t) return "vacio";
+  if (BAJA_WORDS.some(k => t === k || t.startsWith(k + " "))) return "baja";
+  if (EXIT_WORDS.has(t)) return "exit_to_main_menu";
+  // hola es ambigua: si es solo "hola" probablemente quiere menu normal
+  if (t === "hola") return "exit_to_main_menu";
+
+  if (/(c[oó]mo|donde|d[oó]nde).{0,20}(registr|entr|jug|empez|inscrib)/.test(t)) return "como_registro";
+  if (/(no.{0,8}(puedo|s[eé])|ayuda|no me entra|no carga|atascad|error)/.test(t)) return "ayuda_tecnica";
+  if (/(premio|gan|canje|recompens|punto)/.test(t)) return "premios";
+  if (/(costo|precio|gratis|cu[aá]nto cuesta|cuanto vale)/.test(t)) return "costo";
+  if (/(cu[aá]ndo|hasta cu[aá]ndo|fecha|empieza|inaugural|inicia|cu[aá]nto dura)/.test(t)) return "cuando";
+  if (/(gracias|gracias!|🙏|👏|🙌|👍|👌|excelente|perfecto|buenas|qu[eé] bueno|qu[eé] chiva)/.test(t)) return "agradece";
+  if (/(amigo|amig|invit|compart|grupo)/.test(t)) return "invitar_amigos";
+  return "otro";
+}
+
+// =========== respuestas (texto plano, en voseo CR) ===========
+const REPLY = {
+  como_registro:
+    "Solo dale al botón *Jugar ahora* del mensaje que te llegó, o entrá a 👉 mundial.grupocotorreo.com\n\n" +
+    "Te registrás en 2 minutos, solo necesitás tu celular.",
+
+  ayuda_tecnica:
+    "Disculpá! ¿Me podés mandar un screenshot de lo que ves? Así lo reviso con el equipo y te ayudo.\n\n" +
+    "O si preferís hablar con humano, escribí *asesor*.",
+
+  premios:
+    "Acertás partidos del Mundial, ganás puntos, y los canjeás por:\n\n" +
+    "🍔 Comida en Plaza Cotorreo\n" +
+    "🎮 Sesiones en Bebros\n" +
+    "🎾 Canchas en Alpadel\n\n" +
+    "La tabla completa la ves cuando entrás a 👉 mundial.grupocotorreo.com",
+
+  costo:
+    "100% gratis. Solo te tomás 2 min en registrarte.\n\n👉 mundial.grupocotorreo.com",
+
+  cuando:
+    "El partido inaugural es el *11 de junio*. La quiniela corre todo el Mundial hasta la final.\n\n" +
+    "Quien arranque hoy lleva ventaja sobre los demás.",
+
+  agradece:
+    "Gracias a vos por estar con Cotorreo 🙏 Si necesitás ayuda con el registro, mandame screenshot y te ayudo.",
+
+  invitar_amigos:
+    "¡Por supuesto! Cuanto más gente, más interesante.\n\n" +
+    "Compartile el link 👉 mundial.grupocotorreo.com — ellos se registran igual que vos.",
+
+  otro:
+    "Hola 👋 Veo que respondiste a la quiniela del Mundial.\n\n" +
+    "El link para registrarte es 👉 mundial.grupocotorreo.com\n\n" +
+    "¿Pudiste registrarte? Si necesitás ayuda contame qué pasa, o escribí *asesor* para hablar con humano.",
+
+  vacio: null, // no respondemos a mensajes vacios
+};
+
+async function handle({ from, text, sendWatiMessage }) {
+  if (!isRecipient(from)) {
+    return { handled: false };
+  }
+
+  const kind = classify(text);
+
+  if (kind === "baja") {
+    // WATI procesa opt-out, no respondemos
+    return { handled: true };
+  }
+
+  if (kind === "exit_to_main_menu") {
+    // Devolvemos handled:false para que el bot principal le mande el menu normal
+    return { handled: false };
+  }
+
+  const reply = REPLY[kind];
+  if (!reply) {
+    return { handled: true }; // mensaje vacio, no respondemos
+  }
+
+  try {
+    await sendWatiMessage(from, reply);
+    console.log(`mundialHandler: respondio a ${from.slice(-4)} (kind=${kind})`);
+    return { handled: true };
+  } catch (e) {
+    console.log("mundialHandler: error enviando reply", e.message);
+    return { handled: false }; // dejamos que el flujo normal intente
+  }
+}
+
+module.exports = { handle, isRecipient, classify };

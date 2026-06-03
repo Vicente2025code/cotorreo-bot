@@ -1246,6 +1246,15 @@ async function whatsappHandler(req, res) {
       return res.sendStatus(200);
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // MUNDIAL 2026 INTERCEPTOR — additive, no toca flujo existente
+    // Si el contacto esta en data/mundial_2026_recipients.json, el handler
+    // le responde con contexto de quiniela. Si devuelve handled:false, el
+    // bot principal sigue su flujo normal.
+    // ═══════════════════════════════════════════════════════════════════
+    const __mundial = await require("./services/mundialHandler").handle({ from, text, sendWatiMessage });
+    if (__mundial?.handled) return res.sendStatus(200);
+
     if (eventType === "sessionMessageSent") {
       const isHuman = req.body?.operatorEmail &&
                       !req.body.operatorEmail.includes("api-token-user");
