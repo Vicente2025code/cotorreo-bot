@@ -7,6 +7,12 @@
 // Activacion: si el numero del 'from' esta en data/mundial_2026_recipients.json
 // Y el timestamp actual es anterior a `mundial_expires_at` del archivo.
 //
+// SAFETY NETS:
+//   1. Env var MUNDIAL_HANDLER_DISABLED=true -> handler queda completamente
+//      desactivado sin necesidad de redeploy. Pone false / borra para activar.
+//   2. Cooldown 10s por numero (Redis) -> imposible mandarle al mismo numero
+//      mas de 1 mensaje cada 10s. Loop protection.
+//
 // Salida del modo Mundial:
 //   - El cliente escribe "menu", "hola", "1", "2", "3" -> devolvemos {handled:false}
 //     y el bot principal le da el menu normal
@@ -15,6 +21,43 @@
 
 const fs = require("fs");
 const path = require("path");
+const { Redis } = require("@upstash/redis");
+
+let _redis = null;
+function getRedis() {
+  if (_redis) return _redis;
+  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+    return null;
+  }
+  _redis = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
+  });
+  return _redis;
+}
+
+const COOLDOWN_SECONDS = 10;
+
+async function isInCooldown(from) {
+  const r = getRedis();
+  if (!r) return false; // si Redis no esta, no bloqueamos
+  try {
+    const v = await r.get(`mundial:cooldown:${from}`);
+    return !!v;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function setCooldown(from) {
+  const r = getRedis();
+  if (!r) return;
+  try {
+    await r.set(`mundial:cooldown:${from}`, "1", { ex: COOLDOWN_SECONDS });
+  } catch (e) {
+    // best-effort
+  }
+}
 
 const DATA_PATH = path.join(__dirname, "..", "data", "mundial_2026_recipients.json");
 
@@ -116,8 +159,19 @@ const REPLY = {
 };
 
 async function handle({ from, text, sendWatiMessage }) {
+  // Safety net 1: kill switch via env var
+  if (process.env.MUNDIAL_HANDLER_DISABLED === "true") {
+    return { handled: false };
+  }
+
   if (!isRecipient(from)) {
     return { handled: false };
+  }
+
+  // Safety net 2: cooldown anti-loop (10s por contacto)
+  if (await isInCooldown(from)) {
+    console.log(`mundialHandler: COOLDOWN bloqueo respuesta a ${from.slice(-4)}`);
+    return { handled: true }; // bloqueamos respuesta y NO dejamos pasar al bot principal
   }
 
   const kind = classify(text);
@@ -139,6 +193,7 @@ async function handle({ from, text, sendWatiMessage }) {
 
   try {
     await sendWatiMessage(from, reply);
+    await setCooldown(from); // activamos cooldown 10s para este numero
     console.log(`mundialHandler: respondio a ${from.slice(-4)} (kind=${kind})`);
     return { handled: true };
   } catch (e) {
