@@ -1248,12 +1248,17 @@ async function whatsappHandler(req, res) {
 
     // ═══════════════════════════════════════════════════════════════════
     // MUNDIAL 2026 INTERCEPTOR — additive, no toca flujo existente
-    // Si el contacto esta en data/mundial_2026_recipients.json, el handler
-    // le responde con contexto de quiniela. Si devuelve handled:false, el
-    // bot principal sigue su flujo normal.
+    // GUARDS:
+    //   1. Solo procesa mensajes ENTRANTES del cliente, NUNCA eventos del
+    //      sistema como sessionMessageSent (que son nuestros propios envios).
+    //      Sin este guard, el bot se respondia a si mismo en loop infinito.
+    //   2. Requiere texto no vacio.
     // ═══════════════════════════════════════════════════════════════════
-    const __mundial = await require("./services/mundialHandler").handle({ from, text, sendWatiMessage });
-    if (__mundial?.handled) return res.sendStatus(200);
+    const __isUserMessage = !eventType || eventType === "message" || eventType === "message_received";
+    if (__isUserMessage && text && text.length > 0) {
+      const __mundial = await require("./services/mundialHandler").handle({ from, text, sendWatiMessage });
+      if (__mundial?.handled) return res.sendStatus(200);
+    }
 
     if (eventType === "sessionMessageSent") {
       const isHuman = req.body?.operatorEmail &&
