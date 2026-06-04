@@ -1262,24 +1262,36 @@ async function whatsappHandler(req, res) {
 
     if (eventType === "sessionMessageSent") {
       // ═══ MUNDIAL 2026: Activar modo Mundial para destinatario si fue template Mundial ═══
-      // Buscamos el nombre del template en TODOS los fields posibles que WATI pueda usar.
-      // Si se llama "mundial" o "cotorreo_invitacion_mundial", marcamos al contacto.
+      // WATI no manda templateName en sessionMessageSent, solo el text.
+      // Detectamos por contenido: si el texto contiene strings unicos del template
+      // del Mundial, asumimos que es el template y activamos al contacto.
       try {
         const tplName = req.body?.templateName
                      || req.body?.template_name
                      || req.body?.template?.name
-                     || req.body?.messageTemplate?.name
-                     || req.body?.payload?.templateName
                      || "";
-        // Log de diagnostico — para confirmar que field name viene en el payload
-        console.log("📤 sessionMessageSent — tplName encontrado:", JSON.stringify(tplName),
-                    " | body keys:", Object.keys(req.body || {}).join(","));
-        const isMundialTemplate = typeof tplName === "string" && tplName.length > 0 &&
+        const tplText = typeof req.body?.text === "string" ? req.body.text : "";
+        const isMundialByName = typeof tplName === "string" && tplName.length > 0 &&
           (tplName.toLowerCase().includes("mundial") ||
            tplName === "cotorreo_invitacion_mundial");
+        // Detectores por contenido del texto del template (strings unicos del template)
+        const isMundialByText = (
+          tplText.includes("Cotorreo 2026") ||
+          tplText.includes("quiniela mundialista") ||
+          tplText.includes("mundial.grupocotorreo.com") ||
+          tplText.includes("partido inaugural es el 11 de junio")
+        );
+        const isMundialTemplate = isMundialByName || isMundialByText;
+        console.log("📤 sessionMessageSent — tplName:", JSON.stringify(tplName),
+                    "| isMundial(name):", isMundialByName,
+                    "| isMundial(text):", isMundialByText,
+                    "| from:", from?.slice(-4));
         if (isMundialTemplate && from) {
           await require("./services/mundialHandler").activateForContact(from);
-          logEvent("mundial_activated", { from, template: tplName });
+          logEvent("mundial_activated", {
+            from,
+            via: isMundialByName ? "templateName" : "textContent"
+          });
         }
       } catch (e) {
         console.log("⚠️ Error detectando template Mundial:", e.message);
