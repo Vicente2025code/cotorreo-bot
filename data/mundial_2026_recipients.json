@@ -4,8 +4,8 @@
   "_ultima_oleada": "todos",
   "_oleada_descripcion": "TODOS los del CSV (CR solamente)",
   "_generated_at": "2026-06-03T12:49:59.430998",
-  "_expires_at_iso": "2026-06-05T12:49:59.430000",
-  "mundial_expires_at": 1780685399430,
+  "_expires_at_iso": "DESACTIVADO 2026-06-03 — bug de diseno detectado",
+  "mundial_expires_at": 0,
   "recipients": [
     "50600000000",
     "50624600444",
