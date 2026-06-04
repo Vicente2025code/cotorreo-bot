@@ -37,6 +37,39 @@ function getRedis() {
 }
 
 const COOLDOWN_SECONDS = 10;
+const ACTIVE_TTL_SECONDS = 48 * 3600; // 48h en modo Mundial despues de recibir el template
+
+// Activar modo Mundial para un contacto especifico (llamado cuando WATI envia
+// el template del Mundial vía sessionMessageSent)
+async function activateForContact(from) {
+  const r = getRedis();
+  if (!r) return false;
+  const clean = String(from || "").replace(/\D/g, "");
+  if (!clean) return false;
+  try {
+    await r.set(`mundial:active:${clean}`, "1", { ex: ACTIVE_TTL_SECONDS });
+    console.log(`mundialHandler: ACTIVADO para ${clean.slice(-4)} (48h)`);
+    return true;
+  } catch (e) {
+    console.log("mundialHandler: error activando", e.message);
+    return false;
+  }
+}
+
+// Verificar si un contacto esta en modo Mundial activo (recibio el template
+// recientemente y aun esta dentro del window de 48h)
+async function isRecipientActive(from) {
+  const r = getRedis();
+  if (!r) return false;
+  const clean = String(from || "").replace(/\D/g, "");
+  if (!clean) return false;
+  try {
+    const v = await r.get(`mundial:active:${clean}`);
+    return !!v;
+  } catch (e) {
+    return false;
+  }
+}
 
 async function isInCooldown(from) {
   const r = getRedis();
@@ -164,7 +197,13 @@ async function handle({ from, text, sendWatiMessage }) {
     return { handled: false };
   }
 
-  if (!isRecipient(from)) {
+  // V2: detectar si esta en modo Mundial activo (Redis-based, marcado
+  // cuando recibio el template, no por estar en una lista pre-cargada)
+  const activoEnRedis = await isRecipientActive(from);
+
+  // Fallback al JSON (legacy) si Redis no esta o no encontro nada — pero
+  // el JSON debe tener mundial_expires_at > now() para ser efectivo
+  if (!activoEnRedis && !isRecipient(from)) {
     return { handled: false };
   }
 
@@ -202,4 +241,4 @@ async function handle({ from, text, sendWatiMessage }) {
   }
 }
 
-module.exports = { handle, isRecipient, classify };
+module.exports = { handle, isRecipient, classify, activateForContact, isRecipientActive };

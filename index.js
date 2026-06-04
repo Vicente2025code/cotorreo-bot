@@ -1261,6 +1261,30 @@ async function whatsappHandler(req, res) {
     }
 
     if (eventType === "sessionMessageSent") {
+      // ═══ MUNDIAL 2026: Activar modo Mundial para destinatario si fue template Mundial ═══
+      // Buscamos el nombre del template en TODOS los fields posibles que WATI pueda usar.
+      // Si se llama "mundial" o "cotorreo_invitacion_mundial", marcamos al contacto.
+      try {
+        const tplName = req.body?.templateName
+                     || req.body?.template_name
+                     || req.body?.template?.name
+                     || req.body?.messageTemplate?.name
+                     || req.body?.payload?.templateName
+                     || "";
+        // Log de diagnostico — para confirmar que field name viene en el payload
+        console.log("📤 sessionMessageSent — tplName encontrado:", JSON.stringify(tplName),
+                    " | body keys:", Object.keys(req.body || {}).join(","));
+        const isMundialTemplate = typeof tplName === "string" && tplName.length > 0 &&
+          (tplName.toLowerCase().includes("mundial") ||
+           tplName === "cotorreo_invitacion_mundial");
+        if (isMundialTemplate && from) {
+          await require("./services/mundialHandler").activateForContact(from);
+          logEvent("mundial_activated", { from, template: tplName });
+        }
+      } catch (e) {
+        console.log("⚠️ Error detectando template Mundial:", e.message);
+      }
+
       const isHuman = req.body?.operatorEmail &&
                       !req.body.operatorEmail.includes("api-token-user");
       if (isHuman && from) {
