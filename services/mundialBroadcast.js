@@ -130,14 +130,14 @@ async function obtenerContactosElegibles(numOleadaActual) {
       const tieneExcluido = tagsExcluir.some((t) => attrs.has(t));
 
       if (allowBC && esCotorreoCRM && !tieneExcluido) {
-        // Limpiar firstName: si es solo numeros, vacio, o solo emojis -> fallback "amigo"
+        // Limpiar firstName: si es solo numeros, vacio, o solo emojis -> fallback "familia"
         const raw = (c.firstName || c.fullName || "").trim().split(" ")[0] || "";
         // Quitar emojis y caracteres no-letra para limpiar nombres tipo "Yency🖤😘"
         const cleaned = raw.replace(/[^\p{L}\s'-]/gu, "").trim();
         // Validar: debe tener >=2 letras y no ser solo numeros
         const firstName = (cleaned && cleaned.length >= 2 && /[a-zA-ZáéíóúñÁÉÍÓÚÑ]/.test(cleaned))
           ? cleaned
-          : "amigo";
+          : "familia";
         elegibles.push({ wAid: wa, firstName });
       }
     }
