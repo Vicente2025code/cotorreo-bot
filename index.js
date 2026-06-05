@@ -2757,6 +2757,40 @@ try {
 }
 
 // ================================
+// ALPADEL — CRON ONE-SHOT: sabado 6 jun 2026 a las 12:00 PM CR
+// ================================
+const alpadelBroadcast = require("./services/alpadelBroadcast");
+app.post("/cron/alpadel-broadcast", async (req, res) => {
+  const token = req.query.token || req.headers["x-cron-token"];
+  const expected = process.env.MUNDIAL_CRON_TOKEN || "MAR2103-mundial-cron";
+  if (token !== expected) return res.status(401).json({ error: "token invalido" });
+  const force = req.query.force === "true";
+  try {
+    const r = await alpadelBroadcast.ejecutarAlpadel({ force });
+    res.json(r);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+try {
+  const cron = require("node-cron");
+  // "0 12 6 6 *" = 12:00 PM del 6 de junio (mes 6, dia 6)
+  cron.schedule("0 12 6 6 *", async () => {
+    console.log("[Alpadel] CRON disparado sabado 12pm CR");
+    try {
+      const r = await alpadelBroadcast.ejecutarAlpadel({});
+      console.log("[Alpadel] CRON resultado:", JSON.stringify(r));
+    } catch (e) {
+      console.error("[Alpadel] CRON error:", e);
+    }
+  }, { timezone: "America/Costa_Rica" });
+  console.log("[Alpadel] CRON registrado: sabado 6 jun 12:00 PM CR (one-shot)");
+} catch (e) {
+  console.log("[Alpadel] node-cron no disponible:", e.message);
+}
+
+// ================================
 // SERVIDOR
 // ================================
 loadHandoffState().catch(e => console.log("Error inicial handoff:", e.message));

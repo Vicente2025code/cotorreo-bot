@@ -1,0 +1,876 @@
+{
+  "_descripcion": "Jugadores Playtomic CR (Fuente='Alpadel Club') con firstName limpio",
+  "_total": 217,
+  "_template": "alpadel_nueva_app_v1",
+  "_scheduled_for": "2026-06-06 12:00 PM Costa Rica",
+  "recipients": [
+    {
+      "wAid": "50687080421",
+      "firstName": "Virgilio"
+    },
+    {
+      "wAid": "50689574720",
+      "firstName": "Ignacio"
+    },
+    {
+      "wAid": "50671104772",
+      "firstName": "Elmer"
+    },
+    {
+      "wAid": "50688803725",
+      "firstName": "Jose"
+    },
+    {
+      "wAid": "50683037070",
+      "firstName": "Julio"
+    },
+    {
+      "wAid": "50688368439",
+      "firstName": "Diego"
+    },
+    {
+      "wAid": "50685681584",
+      "firstName": "Steven"
+    },
+    {
+      "wAid": "50688622373",
+      "firstName": "Adrian"
+    },
+    {
+      "wAid": "50688840111",
+      "firstName": "Rodrigo"
+    },
+    {
+      "wAid": "50688196888",
+      "firstName": "Fabricio"
+    },
+    {
+      "wAid": "50688190139",
+      "firstName": "Josue"
+    },
+    {
+      "wAid": "50684311158",
+      "firstName": "Santiago"
+    },
+    {
+      "wAid": "50688135421",
+      "firstName": "Brian"
+    },
+    {
+      "wAid": "50683912720",
+      "firstName": "Alejandro"
+    },
+    {
+      "wAid": "50670176931",
+      "firstName": "Ricardo"
+    },
+    {
+      "wAid": "50685518630",
+      "firstName": "Jose"
+    },
+    {
+      "wAid": "50671880305",
+      "firstName": "Saúl"
+    },
+    {
+      "wAid": "50686530806",
+      "firstName": "Jose"
+    },
+    {
+      "wAid": "50686703565",
+      "firstName": "Juan"
+    },
+    {
+      "wAid": "50689297337",
+      "firstName": "Fabian"
+    },
+    {
+      "wAid": "50685593927",
+      "firstName": "Ericka"
+    },
+    {
+      "wAid": "50687185713",
+      "firstName": "Daniela"
+    },
+    {
+      "wAid": "50688060402",
+      "firstName": "Josue"
+    },
+    {
+      "wAid": "50683052284",
+      "firstName": "Cristopher"
+    },
+    {
+      "wAid": "50689476477",
+      "firstName": "Mariana"
+    },
+    {
+      "wAid": "50683890191",
+      "firstName": "Saúl"
+    },
+    {
+      "wAid": "50685627198",
+      "firstName": "Maria"
+    },
+    {
+      "wAid": "50686178583",
+      "firstName": "Silvia"
+    },
+    {
+      "wAid": "50683183912",
+      "firstName": "Daniel"
+    },
+    {
+      "wAid": "50688416342",
+      "firstName": "Sebastian"
+    },
+    {
+      "wAid": "50686296117",
+      "firstName": "Luis"
+    },
+    {
+      "wAid": "50671316051",
+      "firstName": "Francisco"
+    },
+    {
+      "wAid": "50664137085",
+      "firstName": "Felipe"
+    },
+    {
+      "wAid": "50686902528",
+      "firstName": "Fernando"
+    },
+    {
+      "wAid": "50683177176",
+      "firstName": "Bryan"
+    },
+    {
+      "wAid": "50685789420",
+      "firstName": "Felipe"
+    },
+    {
+      "wAid": "50687944000",
+      "firstName": "Felipe"
+    },
+    {
+      "wAid": "50685500565",
+      "firstName": "Vale"
+    },
+    {
+      "wAid": "50685591223",
+      "firstName": "Antonio"
+    },
+    {
+      "wAid": "50684016833",
+      "firstName": "Sebastián"
+    },
+    {
+      "wAid": "50688107698",
+      "firstName": "Rebeca"
+    },
+    {
+      "wAid": "50687744555",
+      "firstName": "Marcos"
+    },
+    {
+      "wAid": "50686333223",
+      "firstName": "Rodrigo"
+    },
+    {
+      "wAid": "50683143636",
+      "firstName": "Fabián"
+    },
+    {
+      "wAid": "50684499958",
+      "firstName": "Santiago"
+    },
+    {
+      "wAid": "50663038030",
+      "firstName": "Cotorreo"
+    },
+    {
+      "wAid": "50688945613",
+      "firstName": "Ana"
+    },
+    {
+      "wAid": "50663031036",
+      "firstName": "Josue"
+    },
+    {
+      "wAid": "50685082378",
+      "firstName": "Luis"
+    },
+    {
+      "wAid": "50685359739",
+      "firstName": "Jean"
+    },
+    {
+      "wAid": "50689924040",
+      "firstName": "Paola"
+    },
+    {
+      "wAid": "50660553237",
+      "firstName": "Isabel"
+    },
+    {
+      "wAid": "50661103328",
+      "firstName": "Lennis"
+    },
+    {
+      "wAid": "50664767695",
+      "firstName": "Juan"
+    },
+    {
+      "wAid": "50689723785",
+      "firstName": "Dana"
+    },
+    {
+      "wAid": "50683325205",
+      "firstName": "Aimara"
+    },
+    {
+      "wAid": "50670150044",
+      "firstName": "Esteban"
+    },
+    {
+      "wAid": "50684444234",
+      "firstName": "Fabiana"
+    },
+    {
+      "wAid": "50683566753",
+      "firstName": "Steven"
+    },
+    {
+      "wAid": "50688507597",
+      "firstName": "Liz"
+    },
+    {
+      "wAid": "50683357602",
+      "firstName": "Luis"
+    },
+    {
+      "wAid": "50687660606",
+      "firstName": "Tatiana"
+    },
+    {
+      "wAid": "50688618861",
+      "firstName": "Gilberto"
+    },
+    {
+      "wAid": "50670850104",
+      "firstName": "Diana"
+    },
+    {
+      "wAid": "50685301919",
+      "firstName": "Mariangel"
+    },
+    {
+      "wAid": "50683160325",
+      "firstName": "Daniel"
+    },
+    {
+      "wAid": "50684931242",
+      "firstName": "Erick"
+    },
+    {
+      "wAid": "50683159774",
+      "firstName": "Juan"
+    },
+    {
+      "wAid": "50685684537",
+      "firstName": "José"
+    },
+    {
+      "wAid": "50686486121",
+      "firstName": "Yendry"
+    },
+    {
+      "wAid": "50687255609",
+      "firstName": "Osvaldo"
+    },
+    {
+      "wAid": "50683010113",
+      "firstName": "Sharon"
+    },
+    {
+      "wAid": "50687185749",
+      "firstName": "Olga"
+    },
+    {
+      "wAid": "50687072091",
+      "firstName": "Agustin"
+    },
+    {
+      "wAid": "50662648024",
+      "firstName": "Sebastian"
+    },
+    {
+      "wAid": "50662411934",
+      "firstName": "Tomas"
+    },
+    {
+      "wAid": "50688028861",
+      "firstName": "Felipe"
+    },
+    {
+      "wAid": "50671451379",
+      "firstName": "Lorenzo"
+    },
+    {
+      "wAid": "50683089600",
+      "firstName": "Victor"
+    },
+    {
+      "wAid": "50685706322",
+      "firstName": "Santiago"
+    },
+    {
+      "wAid": "50687554566",
+      "firstName": "Cristopher"
+    },
+    {
+      "wAid": "50672452011",
+      "firstName": "Alejandro"
+    },
+    {
+      "wAid": "50672506900",
+      "firstName": "Andrés"
+    },
+    {
+      "wAid": "50688257729",
+      "firstName": "Benja"
+    },
+    {
+      "wAid": "50683486493",
+      "firstName": "Hiking"
+    },
+    {
+      "wAid": "50687023931",
+      "firstName": "Daniela"
+    },
+    {
+      "wAid": "50688699243",
+      "firstName": "Mariana"
+    },
+    {
+      "wAid": "50684533140",
+      "firstName": "Melissa"
+    },
+    {
+      "wAid": "50661024484",
+      "firstName": "Javier"
+    },
+    {
+      "wAid": "50685872342",
+      "firstName": "Aaron"
+    },
+    {
+      "wAid": "50688273628",
+      "firstName": "Juanitocamelo"
+    },
+    {
+      "wAid": "50685060331",
+      "firstName": "Luis"
+    },
+    {
+      "wAid": "50687442369",
+      "firstName": "Fray"
+    },
+    {
+      "wAid": "50684193888",
+      "firstName": "Katherine"
+    },
+    {
+      "wAid": "50683780759",
+      "firstName": "Josue"
+    },
+    {
+      "wAid": "50687205465",
+      "firstName": "Juan"
+    },
+    {
+      "wAid": "50684924646",
+      "firstName": "Jeickel"
+    },
+    {
+      "wAid": "50687136590",
+      "firstName": "Francella"
+    },
+    {
+      "wAid": "50683138183",
+      "firstName": "familia"
+    },
+    {
+      "wAid": "50683928481",
+      "firstName": "Jorge"
+    },
+    {
+      "wAid": "50686441824",
+      "firstName": "Mario"
+    },
+    {
+      "wAid": "50683040004",
+      "firstName": "Aquatica"
+    },
+    {
+      "wAid": "50683223174",
+      "firstName": "Frander"
+    },
+    {
+      "wAid": "50688615441",
+      "firstName": "Pablo"
+    },
+    {
+      "wAid": "50684780751",
+      "firstName": "Isabela"
+    },
+    {
+      "wAid": "50683010149",
+      "firstName": "Carlos"
+    },
+    {
+      "wAid": "50684509501",
+      "firstName": "Ariana"
+    },
+    {
+      "wAid": "50687489285",
+      "firstName": "Andrés"
+    },
+    {
+      "wAid": "50688806769",
+      "firstName": "Miguel"
+    },
+    {
+      "wAid": "50661955479",
+      "firstName": "Cristian"
+    },
+    {
+      "wAid": "50684933996",
+      "firstName": "Alejandro"
+    },
+    {
+      "wAid": "50685305032",
+      "firstName": "Santiago"
+    },
+    {
+      "wAid": "50689430240",
+      "firstName": "Julián"
+    },
+    {
+      "wAid": "50683052882",
+      "firstName": "Rodrigo"
+    },
+    {
+      "wAid": "50660530172",
+      "firstName": "Andreina"
+    },
+    {
+      "wAid": "50672026311",
+      "firstName": "Marvin"
+    },
+    {
+      "wAid": "50664210709",
+      "firstName": "Laray"
+    },
+    {
+      "wAid": "50684554475",
+      "firstName": "Rebeca"
+    },
+    {
+      "wAid": "50685968425",
+      "firstName": "Allan"
+    },
+    {
+      "wAid": "50688800615",
+      "firstName": "Sendelyn"
+    },
+    {
+      "wAid": "50687180005",
+      "firstName": "Maria"
+    },
+    {
+      "wAid": "50683141983",
+      "firstName": "Ana"
+    },
+    {
+      "wAid": "50664877570",
+      "firstName": "Daniel"
+    },
+    {
+      "wAid": "50686112960",
+      "firstName": "Luis"
+    },
+    {
+      "wAid": "50687350002",
+      "firstName": "Gabriel"
+    },
+    {
+      "wAid": "50687821361",
+      "firstName": "Andres"
+    },
+    {
+      "wAid": "50686297328",
+      "firstName": "José"
+    },
+    {
+      "wAid": "50689595021",
+      "firstName": "Paula"
+    },
+    {
+      "wAid": "50688895353",
+      "firstName": "Angelick"
+    },
+    {
+      "wAid": "50687902101",
+      "firstName": "Santiago"
+    },
+    {
+      "wAid": "50684272366",
+      "firstName": "Anthony"
+    },
+    {
+      "wAid": "50684035544",
+      "firstName": "José"
+    },
+    {
+      "wAid": "50687235242",
+      "firstName": "Jocsan"
+    },
+    {
+      "wAid": "50683292536",
+      "firstName": "Alejandro"
+    },
+    {
+      "wAid": "50685559688",
+      "firstName": "José"
+    },
+    {
+      "wAid": "50688727625",
+      "firstName": "Rebeca"
+    },
+    {
+      "wAid": "50685082377",
+      "firstName": "Carlos"
+    },
+    {
+      "wAid": "50683573618",
+      "firstName": "Juan"
+    },
+    {
+      "wAid": "50664724122",
+      "firstName": "Juan"
+    },
+    {
+      "wAid": "50672848491",
+      "firstName": "Roberto"
+    },
+    {
+      "wAid": "50685438686",
+      "firstName": "Santiago"
+    },
+    {
+      "wAid": "50685082375",
+      "firstName": "Saul"
+    },
+    {
+      "wAid": "50684446562",
+      "firstName": "Carlos"
+    },
+    {
+      "wAid": "50663218459",
+      "firstName": "Carlos"
+    },
+    {
+      "wAid": "50684902693",
+      "firstName": "Dilana"
+    },
+    {
+      "wAid": "50686357104",
+      "firstName": "Vinicio"
+    },
+    {
+      "wAid": "50688709798",
+      "firstName": "Pablo"
+    },
+    {
+      "wAid": "50686077888",
+      "firstName": "Carlos"
+    },
+    {
+      "wAid": "50688262932",
+      "firstName": "Choripan"
+    },
+    {
+      "wAid": "50670174786",
+      "firstName": "Ericka"
+    },
+    {
+      "wAid": "50688050851",
+      "firstName": "Priscila"
+    },
+    {
+      "wAid": "50683591534",
+      "firstName": "Juan"
+    },
+    {
+      "wAid": "50670693842",
+      "firstName": "Josette"
+    },
+    {
+      "wAid": "50684717684",
+      "firstName": "Roberto"
+    },
+    {
+      "wAid": "50684675156",
+      "firstName": "Anthony"
+    },
+    {
+      "wAid": "50685022303",
+      "firstName": "Noylin"
+    },
+    {
+      "wAid": "50671133965",
+      "firstName": "Lisbeth"
+    },
+    {
+      "wAid": "50671828028",
+      "firstName": "Reinaldo"
+    },
+    {
+      "wAid": "50687394405",
+      "firstName": "Alfredo"
+    },
+    {
+      "wAid": "50686206980",
+      "firstName": "Christopher"
+    },
+    {
+      "wAid": "50688469347",
+      "firstName": "Vidal"
+    },
+    {
+      "wAid": "50689833888",
+      "firstName": "Victoria"
+    },
+    {
+      "wAid": "50688397082",
+      "firstName": "Katia"
+    },
+    {
+      "wAid": "50684389814",
+      "firstName": "Mariela"
+    },
+    {
+      "wAid": "50683436868",
+      "firstName": "Katya"
+    },
+    {
+      "wAid": "50688128220",
+      "firstName": "Jenny"
+    },
+    {
+      "wAid": "50686996373",
+      "firstName": "Cuss"
+    },
+    {
+      "wAid": "50664308362",
+      "firstName": "Santiago"
+    },
+    {
+      "wAid": "50688486333",
+      "firstName": "Eliecer"
+    },
+    {
+      "wAid": "50672758098",
+      "firstName": "Jorge"
+    },
+    {
+      "wAid": "50688545264",
+      "firstName": "Azarías"
+    },
+    {
+      "wAid": "50689288064",
+      "firstName": "Cicin"
+    },
+    {
+      "wAid": "50670161686",
+      "firstName": "Elizabeth"
+    },
+    {
+      "wAid": "50683096134",
+      "firstName": "Andrey"
+    },
+    {
+      "wAid": "50670056423",
+      "firstName": "Judson"
+    },
+    {
+      "wAid": "50683051614",
+      "firstName": "Paulina"
+    },
+    {
+      "wAid": "50689919168",
+      "firstName": "Laura"
+    },
+    {
+      "wAid": "50672706950",
+      "firstName": "Daniel"
+    },
+    {
+      "wAid": "50683518040",
+      "firstName": "Francisco"
+    },
+    {
+      "wAid": "50686785709",
+      "firstName": "Isaac"
+    },
+    {
+      "wAid": "50683045377",
+      "firstName": "David"
+    },
+    {
+      "wAid": "50671745188",
+      "firstName": "Edgar"
+    },
+    {
+      "wAid": "50688650095",
+      "firstName": "Matthew"
+    },
+    {
+      "wAid": "50685505427",
+      "firstName": "Sebas"
+    },
+    {
+      "wAid": "50684790007",
+      "firstName": "José"
+    },
+    {
+      "wAid": "50686816629",
+      "firstName": "Esteban"
+    },
+    {
+      "wAid": "50670480600",
+      "firstName": "Victor"
+    },
+    {
+      "wAid": "50684028441",
+      "firstName": "Kevin"
+    },
+    {
+      "wAid": "50672413013",
+      "firstName": "Cristopher"
+    },
+    {
+      "wAid": "50686547789",
+      "firstName": "Adrian"
+    },
+    {
+      "wAid": "50661566485",
+      "firstName": "Santiago"
+    },
+    {
+      "wAid": "50686128605",
+      "firstName": "Iván"
+    },
+    {
+      "wAid": "50689422589",
+      "firstName": "Dahiryn"
+    },
+    {
+      "wAid": "50686237153",
+      "firstName": "Límber"
+    },
+    {
+      "wAid": "50687085731",
+      "firstName": "Karla"
+    },
+    {
+      "wAid": "50689424990",
+      "firstName": "Daniel"
+    },
+    {
+      "wAid": "50685135240",
+      "firstName": "Kristel"
+    },
+    {
+      "wAid": "50683086274",
+      "firstName": "Ana"
+    },
+    {
+      "wAid": "50686966278",
+      "firstName": "Ghost"
+    },
+    {
+      "wAid": "50688763860",
+      "firstName": "Jo"
+    },
+    {
+      "wAid": "50671088593",
+      "firstName": "Ana"
+    },
+    {
+      "wAid": "50683650198",
+      "firstName": "Luis"
+    },
+    {
+      "wAid": "50689227975",
+      "firstName": "Jorge"
+    },
+    {
+      "wAid": "50685841638",
+      "firstName": "Fabricio"
+    },
+    {
+      "wAid": "50685595931",
+      "firstName": "Mariana"
+    },
+    {
+      "wAid": "50685685880",
+      "firstName": "Sebastián"
+    },
+    {
+      "wAid": "50689759444",
+      "firstName": "Brandon"
+    },
+    {
+      "wAid": "50688524480",
+      "firstName": "Agustín"
+    },
+    {
+      "wAid": "50661740294",
+      "firstName": "Evelyn"
+    },
+    {
+      "wAid": "50660068833",
+      "firstName": "Xihany"
+    },
+    {
+      "wAid": "50688144342",
+      "firstName": "Iris"
+    },
+    {
+      "wAid": "50684732095",
+      "firstName": "Yuver"
+    },
+    {
+      "wAid": "50662690535",
+      "firstName": "Jimena"
+    },
+    {
+      "wAid": "50686087556",
+      "firstName": "Matías"
+    },
+    {
+      "wAid": "50685223292",
+      "firstName": "Paula"
+    },
+    {
+      "wAid": "5068342742",
+      "firstName": "Marcia"
+    },
+    {
+      "wAid": "50670750713",
+      "firstName": "Judy"
+    }
+  ]
+}
