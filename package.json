@@ -14,6 +14,7 @@
     "@upstash/redis": "^1.37.0",
     "body-parser": "^2.2.2",
     "express": "^5.2.1",
+    "node-cron": "^3.0.3",
     "openai": "^6.34.0",
     "twilio": "^5.11.2"
   }

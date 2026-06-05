@@ -2715,6 +2715,48 @@ setTimeout(() => sendText("hola"), 400);
 app.get("/", (req, res) => res.send("OK"));
 
 // ================================
+// ================================
+// MUNDIAL 2026 — ENDPOINT + CRON DIARIO 7 PM CR
+// ================================
+const mundialBroadcast = require("./services/mundialBroadcast");
+
+// Endpoint protegido para disparar oleada manualmente o via webhook externo
+app.post("/cron/mundial-oleada", async (req, res) => {
+  const token = req.query.token || req.headers["x-cron-token"];
+  const expected = process.env.MUNDIAL_CRON_TOKEN || "MAR2103-mundial-cron";
+  if (token !== expected) {
+    return res.status(401).json({ error: "token invalido" });
+  }
+  const force = req.query.force === "true";
+  console.log(`[Mundial] Trigger HTTP — force=${force}`);
+  try {
+    const r = await mundialBroadcast.ejecutarOleada({ force });
+    res.json(r);
+  } catch (e) {
+    console.error("[Mundial] Error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Cron interno node-cron — todos los dias 7 PM CR (= 01:00 UTC dia siguiente)
+try {
+  const cron = require("node-cron");
+  // "0 19 * * *" en timezone America/Costa_Rica = 7:00 PM CR
+  cron.schedule("0 19 * * *", async () => {
+    console.log("[Mundial] CRON disparado 7pm CR");
+    try {
+      const r = await mundialBroadcast.ejecutarOleada({});
+      console.log("[Mundial] CRON resultado:", JSON.stringify(r));
+    } catch (e) {
+      console.error("[Mundial] CRON error:", e);
+    }
+  }, { timezone: "America/Costa_Rica" });
+  console.log("[Mundial] CRON registrado: 7:00 PM CR diario");
+} catch (e) {
+  console.log("[Mundial] node-cron no disponible:", e.message);
+}
+
+// ================================
 // SERVIDOR
 // ================================
 loadHandoffState().catch(e => console.log("Error inicial handoff:", e.message));
