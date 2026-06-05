@@ -190,6 +190,20 @@ async function ejecutarOleada({ force = false } = {}) {
     return { ok: false, error: "WATI_TOKEN no configurado" };
   }
 
+  // Safety: pausa via env var para fechas especificas (ej. cuando se manda
+  // otra campana del grupo el mismo dia y se quiere preservar cupo WATI).
+  // Env var MUNDIAL_CRON_PAUSE_DATE=YYYY-MM-DD pausa SOLO ese dia.
+  const fechaPausa = (process.env.MUNDIAL_CRON_PAUSE_DATE || "").trim();
+  if (fechaPausa && !force) {
+    const hoyCR = new Date().toLocaleDateString("en-CA", {
+      timeZone: "America/Costa_Rica"
+    }); // formato YYYY-MM-DD
+    if (hoyCR === fechaPausa) {
+      console.log(`[Mundial] CRON pausado para hoy (${hoyCR}) via env var`);
+      return { ok: false, skip: `pausado para fecha ${fechaPausa}` };
+    }
+  }
+
   if (!force && (await yaEjecutadoHoy())) {
     return { ok: false, skip: "ya ejecutado hoy" };
   }
