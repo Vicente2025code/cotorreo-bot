@@ -2738,12 +2738,12 @@ app.post("/cron/mundial-oleada", async (req, res) => {
   }
 });
 
-// Cron interno node-cron — todos los dias 7 PM CR (= 01:00 UTC dia siguiente)
+// Cron interno node-cron — todos los dias 6 PM CR (= 00:00 UTC dia siguiente)
 try {
   const cron = require("node-cron");
-  // "0 19 * * *" en timezone America/Costa_Rica = 7:00 PM CR
-  cron.schedule("0 19 * * *", async () => {
-    console.log("[Mundial] CRON disparado 7pm CR");
+  // "0 18 * * *" en timezone America/Costa_Rica = 6:00 PM CR
+  cron.schedule("0 18 * * *", async () => {
+    console.log("[Mundial] CRON disparado 6pm CR");
     try {
       const r = await mundialBroadcast.ejecutarOleada({});
       console.log("[Mundial] CRON resultado:", JSON.stringify(r));
@@ -2751,7 +2751,7 @@ try {
       console.error("[Mundial] CRON error:", e);
     }
   }, { timezone: "America/Costa_Rica" });
-  console.log("[Mundial] CRON registrado: 7:00 PM CR diario");
+  console.log("[Mundial] CRON registrado: 6:00 PM CR diario");
 } catch (e) {
   console.log("[Mundial] node-cron no disponible:", e.message);
 }

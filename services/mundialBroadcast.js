@@ -103,8 +103,10 @@ async function obtenerContactosElegibles(numOleadaActual) {
   const SIZE = 100;
 
   // Tags de exclusion: multi_negocio (oleada 1) + todas las oleadas previas
+  // E INCLUIDA la oleada actual — porque puede haber tageados de tests/manual
+  // a quienes ya les mandamos algo de esta misma oleada.
   const tagsExcluir = ["multi_negocio"];
-  for (let i = 2; i < numOleadaActual; i++) {
+  for (let i = 2; i <= numOleadaActual; i++) {
     tagsExcluir.push(`mundial_oleada_${i}`);
   }
 
@@ -246,7 +248,7 @@ async function ejecutarOleada({ force = false } = {}) {
     `❌ Fallos: ${fallos}\n` +
     `📥 Quedan elegibles para próximas oleadas: ${elegibles.length - targets.length}\n` +
     `🔖 Tageados con: ${tagOleada}\n\n` +
-    `Mañana 7pm sale la oleada ${numOleada + 1}.`;
+    `Mañana 6pm sale la oleada ${numOleada + 1}.`;
   await notificarVicente(resumen);
 
   console.log(`[Mundial] Oleada ${numOleada} terminada. OK=${ok} FAIL=${fallos}`);
