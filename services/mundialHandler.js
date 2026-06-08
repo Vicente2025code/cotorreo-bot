@@ -39,6 +39,33 @@ function getRedis() {
 const COOLDOWN_SECONDS = 10;
 const ACTIVE_TTL_SECONDS = 48 * 3600; // 48h en modo Mundial despues de recibir el template
 
+// ================================
+// NIVEL A: Deteccion por contenido del mensaje
+// ================================
+// Si el cliente menciona palabras inequivocas del Mundial Cotorreo 2026,
+// el handler responde con info de quiniela SIN importar si esta en lista.
+// Esto cubre el caso de clientes que recibieron template via script externo
+// (no via bot) y por ende no estan marcados en Redis ni en JSON.
+//
+// REGLA: solo activamos con palabras que NO se usen en flujo normal del bot.
+// "registrar" o "premio" sueltos NO activan (son ambiguos).
+function tieneSeñalDefinitivaDeMundial(text) {
+  const t = (text || "").toLowerCase();
+  if (!t || t.length < 3) return false;
+  const patrones = [
+    /\bmundial(es)?\b/,                  // "mundial" o "mundiales"
+    /\bquiniel/,                          // "quiniela", "quinielera", etc.
+    /cotorreo\s*2026/,                   // "Cotorreo 2026"
+    /\bfifa\b/,                           // "FIFA"
+    /partido\s*inaugural/,                // "partido inaugural"
+    /\b11\s*de\s*junio/,                  // "11 de junio"
+    /jugar.{0,15}mundial/,                // "jugar el mundial", "jugar al mundial"
+    /apuesta.{0,10}mundial/,              // "apuesta del mundial"
+    /pronostico.{0,15}(partido|mundial)/, // "pronostico de partidos"
+  ];
+  return patrones.some(p => p.test(t));
+}
+
 // Activar modo Mundial para un contacto especifico (llamado cuando WATI envia
 // el template del Mundial vía sessionMessageSent)
 async function activateForContact(from) {
@@ -197,15 +224,24 @@ async function handle({ from, text, sendWatiMessage }) {
     return { handled: false };
   }
 
-  // V2: detectar si esta en modo Mundial activo (Redis-based, marcado
+  // NIVEL A: Palabras inequivocas del Mundial en el texto -> SIEMPRE activa
+  const señalA = tieneSeñalDefinitivaDeMundial(text);
+
+  // NIVEL B: V2 detectar si esta en modo Mundial activo (Redis-based, marcado
   // cuando recibio el template, no por estar en una lista pre-cargada)
   const activoEnRedis = await isRecipientActive(from);
 
-  // Fallback al JSON (legacy) si Redis no esta o no encontro nada — pero
-  // el JSON debe tener mundial_expires_at > now() para ser efectivo
-  if (!activoEnRedis && !isRecipient(from)) {
+  // NIVEL C: Fallback al JSON (legacy) — debe tener mundial_expires_at > now()
+  const enListaJSON = isRecipient(from);
+
+  // Si NINGUN nivel aplica, devolver { handled: false } y dejar pasar al
+  // flujo normal del bot sin afectarlo.
+  if (!señalA && !activoEnRedis && !enListaJSON) {
     return { handled: false };
   }
+
+  // Log de diagnostico para saber por que nivel se activo
+  if (señalA) console.log(`mundialHandler: activado via NIVEL A (texto) para ${from.slice(-4)}`);
 
   // Safety net 2: cooldown anti-loop (10s por contacto)
   if (await isInCooldown(from)) {
