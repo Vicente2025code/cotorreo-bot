@@ -185,7 +185,7 @@ async function notificarVicente(mensaje) {
 // =====================================================
 // FUNCION PRINCIPAL
 // =====================================================
-async function ejecutarOleada({ force = false } = {}) {
+async function ejecutarOleada({ force = false, limit = null } = {}) {
   if (!process.env.WATI_TOKEN) {
     return { ok: false, error: "WATI_TOKEN no configurado" };
   }
@@ -231,8 +231,9 @@ async function ejecutarOleada({ force = false } = {}) {
     return { ok: true, oleada: numOleada, elegibles: 0, enviados: 0 };
   }
 
-  // 2. Mandar a los primeros MAX_POR_OLEADA
-  const targets = elegibles.slice(0, MAX_POR_OLEADA);
+  // 2. Mandar a los primeros N (limit override del MAX_POR_OLEADA default)
+  const maxToSend = limit && limit > 0 ? limit : MAX_POR_OLEADA;
+  const targets = elegibles.slice(0, maxToSend);
   const broadcastName = `mundial_oleada_${numOleada}_${Date.now()}`;
   let ok = 0, fallos = 0;
   const fallidos = [];

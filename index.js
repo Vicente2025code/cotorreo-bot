@@ -2728,9 +2728,10 @@ app.post("/cron/mundial-oleada", async (req, res) => {
     return res.status(401).json({ error: "token invalido" });
   }
   const force = req.query.force === "true";
-  console.log(`[Mundial] Trigger HTTP — force=${force}`);
+  const limit = req.query.limit ? parseInt(req.query.limit, 10) : null;
+  console.log(`[Mundial] Trigger HTTP — force=${force} limit=${limit}`);
   try {
-    const r = await mundialBroadcast.ejecutarOleada({ force });
+    const r = await mundialBroadcast.ejecutarOleada({ force, limit });
     res.json(r);
   } catch (e) {
     console.error("[Mundial] Error:", e);
