@@ -893,6 +893,62 @@ const payload = new URLSearchParams({
 }
 
 // ================================
+// ENVIO DE IMAGEN VIA WATI sendSessionFile
+// Descarga la URL publica y la sube como multipart a WATI con caption.
+// Si falla por algun motivo, hace fallback a texto plano con caption + URL.
+// ================================
+async function sendWatiImage(to, imageUrl, caption = "") {
+  if (isDemoSession(to)) {
+    if (caption) pushDemoReply(to, { type: "text", text: String(caption) });
+    pushDemoReply(to, { type: "image", url: imageUrl });
+    return;
+  }
+
+  const token = process.env.WATI_TOKEN;
+  const baseEndpoint = process.env.WATI_ENDPOINT;
+  const tenantId = "1085608";
+  if (!token || !baseEndpoint) {
+    console.log("⚠️ WATI config faltante, fallback a texto.");
+    if (caption) await sendWatiMessage(to, caption + "\n\n📸 " + imageUrl);
+    return;
+  }
+
+  const whatsappNumber = String(to).replace(/\D/g, "");
+
+  try {
+    // 1) descargar la imagen del host publico
+    const imgResp = await fetch(imageUrl);
+    if (!imgResp.ok) throw new Error(`fetch imagen status ${imgResp.status}`);
+    const imgBuffer = Buffer.from(await imgResp.arrayBuffer());
+    const filename = (imageUrl.split("/").pop() || "imagen.jpg").split("?")[0];
+
+    // 2) armar multipart con FormData global (Node 18+)
+    const formData = new FormData();
+    const blob = new Blob([imgBuffer], { type: "image/jpeg" });
+    formData.append("file", blob, filename);
+    if (caption) formData.append("caption", String(caption));
+
+    // 3) POST a WATI sendSessionFile
+    const endpoint = `${baseEndpoint}/${tenantId}/api/v1/sendSessionFile/${whatsappNumber}`;
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+    const txt = await response.text();
+    console.log("📨 WATI image status:", response.status, "resp:", txt.slice(0, 200));
+    if (response.status >= 400) throw new Error(`WATI status ${response.status}`);
+  } catch (e) {
+    console.log("❌ Error enviando imagen WATI, fallback a texto:", e?.message);
+    if (caption) {
+      try {
+        await sendWatiMessage(to, caption + "\n\n📸 Ver imagen: " + imageUrl);
+      } catch (_) {}
+    }
+  }
+}
+
+// ================================
 // ENVÍO DE TEMPLATE MESSAGE WATI
 // Usa el endpoint /sendTemplateMessage (no /sendSessionMessage) para
 // poder iniciar conversación fuera de la ventana de 24h.
@@ -1256,6 +1312,19 @@ async function whatsappHandler(req, res) {
     // ═══════════════════════════════════════════════════════════════════
     const __isUserMessage = !eventType || eventType === "message" || eventType === "message_received";
     if (__isUserMessage && text && text.length > 0) {
+      // ═══ PRECIOS HANDLER (Combos Mundialistas + fallback calido) ═══
+      // Va PRIMERO porque "combo mundialista" debe responder con foto+precio
+      // (preciosHandler) y no con texto de quiniela (mundialHandler).
+      try {
+        const __precios = await require("./services/preciosHandler").handle({
+          from, text, sendWatiMessage, sendWatiImage,
+        });
+        if (__precios?.handled) return res.sendStatus(200);
+      } catch (e) {
+        console.log("⚠️ preciosHandler error:", e?.message);
+      }
+
+      // ═══ MUNDIAL HANDLER (quiniela / Cotorreo 2026) ═══
       const __mundial = await require("./services/mundialHandler").handle({ from, text, sendWatiMessage });
       if (__mundial?.handled) return res.sendStatus(200);
     }
