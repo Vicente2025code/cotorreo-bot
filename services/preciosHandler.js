@@ -169,6 +169,11 @@ const COPY_FALLBACK_PRECIO =
 // NOTIFICACION INTERNA
 // ================================
 async function notificarLeadEsperando(from, textOriginal, sendWatiMessage) {
+  // No notificar por tests demo (from empieza con "demo:")
+  if (String(from || "").startsWith("demo:")) {
+    console.log("preciosHandler: skip notificacion Vicente (demo session)");
+    return;
+  }
   const ultimos4 = String(from || "").slice(-4);
   const aviso =
     `🔔 *Lead esperando precio*\n\n` +
