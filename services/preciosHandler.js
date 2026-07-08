@@ -91,11 +91,23 @@ function normalizar(text) {
 function detectarComboEspecifico(text) {
   const t = normalizar(text);
   if (!t) return null;
-  // Necesita mencionar "combo" + un país, O directamente el plato
-  const menciona_combo = /\bcombo/.test(t);
+  // Necesita mencionar "combo"/"mundialista" + un país, O directamente el plato específico
+  const menciona_combo = /\bcombo|mundialist/.test(t);
+  // Palabras muy genéricas que NO deberían disparar combo mundialista por sí solas.
+  // Ej: "promo de sushi?" en martes debe ir a IA para ofrecer el Martes sushiero
+  // (rollo+rollo), no el combo mundialista japón.
+  const GENERICAS = new Set([
+    "sushi", "burger", "burguer", "hamburguesa", "asado", "parrilla",
+    "pastor", "tacos pastor", "tacos de pastor", "rolls"
+  ]);
   for (const [key, combo] of Object.entries(COMBOS)) {
     const keywordsNormalizadas = combo.keywords.map(k => normalizar(k));
-    const matchPlato = keywordsNormalizadas.some(k => k.length >= 5 && t.includes(k));
+    const matchPlato = keywordsNormalizadas.some(k => {
+      if (k.length < 5) return false;
+      if (!t.includes(k)) return false;
+      if (GENERICAS.has(k) && !menciona_combo) return false;
+      return true;
+    });
     const matchPais = keywordsNormalizadas.some(k =>
       ["mexico", "japon", "usa", "francia", "argentina"].includes(k) && t.includes(k)
     );
