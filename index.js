@@ -2522,6 +2522,23 @@ app.get("/liberar/:numero", (req, res) => {
   res.send("✅ Bot reactivado para " + numero);
 });
 
+// Reset MASIVO de handoff activo — desbloquea todos los clientes que quedaron
+// mudos por el bug del handoff loop. Protegido con token para evitar abuso.
+app.get("/liberar-todos", async (req, res) => {
+  const token = req.query.token;
+  const expected = process.env.ADMIN_RESET_TOKEN || "MAR2103-reset-all";
+  if (token !== expected) {
+    return res.status(401).send("Token invalido. Usar ?token=...");
+  }
+  const activos = Object.keys(userHandoff).filter(k => userHandoff[k]?.active);
+  const total = activos.length;
+  for (const numero of activos) {
+    await clearUserHandoff(numero);
+  }
+  const detalle = activos.slice(0, 20).join(", ");
+  res.send(`✅ Reseteados ${total} clientes con handoff activo.\n\nPrimeros 20:\n${detalle}`);
+});
+
 app.get("/reset/:numero", async (req, res) => {
   const numero = req.params.numero;
   delete userProfile[numero];
