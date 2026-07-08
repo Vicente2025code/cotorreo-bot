@@ -1366,8 +1366,14 @@ async function whatsappHandler(req, res) {
         console.log("⚠️ Error detectando template Mundial:", e.message);
       }
 
+      // BOT_SELF_EMAIL: la cuenta admin bajo la cual el bot envía mensajes.
+      // WATI marca cada sendWatiMessage/sendWatiImage con este operatorEmail,
+      // y sin excluirlo el bot se auto-detecta como humano y entra en loop
+      // infinito de handoff → clientes quedan sin respuesta.
+      const BOT_SELF_EMAIL = process.env.BOT_SELF_EMAIL || "vicentebenitezg@gmail.com";
       const isHuman = req.body?.operatorEmail &&
-                      !req.body.operatorEmail.includes("api-token-user");
+                      !req.body.operatorEmail.includes("api-token-user") &&
+                      req.body.operatorEmail !== BOT_SELF_EMAIL;
       if (isHuman && from) {
         const handoff = getUserHandoff(from);
         handoff.active = true;
