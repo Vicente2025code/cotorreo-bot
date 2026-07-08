@@ -231,15 +231,15 @@ async function handle({ from, text, sendWatiMessage, sendWatiImage }) {
     }
   }
 
-  // 3) Pregunta precio + algo NO mapeado → fallback calido + ping interno
-  // CONDICION ESTRICTA: tiene que ser claramente pregunta de precio
-  // (para no entorpecer el flujo normal del bot)
+  // 3) Fallback SOLO para preguntas de precio sobre eventos/fiestas/catering
+  // (cosas que la IA NO sabe). Para hamburguesa, sushi, tacos, etc. dejamos
+  // que la IA responda con precio del menu.
   const esPreguntaPrecio = detectarPreguntaPrecio(t);
-  // Y mencionar algo de comida/producto (no "cuánto tarda" o "cuánto dura")
   const tNorm = normalizar(t);
-  const mencionaProducto = /\b(combo|plato|comida|bebida|cerveza|taco|sushi|burger|hamburguesa|parrilla|cordon|menu|menú|paquete|fiesta|evento)\b/.test(tNorm);
+  // Solo activar fallback para categorias que la IA NO maneja bien
+  const mencionaProductoNoIA = /\b(paquete|fiesta|evento|catering|domicilio|delivery|servicio a domicilio)\b/.test(tNorm);
 
-  if (esPreguntaPrecio && mencionaProducto) {
+  if (esPreguntaPrecio && mencionaProductoNoIA) {
     try {
       await sendWatiMessage(from, COPY_FALLBACK_PRECIO);
       await notificarLeadEsperando(from, t, sendWatiMessage);
