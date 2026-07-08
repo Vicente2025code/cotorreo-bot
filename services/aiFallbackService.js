@@ -352,7 +352,7 @@ async function getSimpleAIReply(messageText, context = {}) {
   ].filter(Boolean).join("\n");
 
   try {
-    const client = new OpenAI({ apiKey });
+    const client = new OpenAI({ apiKey, timeout: 15000 });
     const response = await client.responses.create({
       model: "gpt-4o-mini",
       instructions: SYSTEM_INSTRUCTIONS,
