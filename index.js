@@ -1324,9 +1324,11 @@ async function whatsappHandler(req, res) {
     // ═══════════════════════════════════════════════════════════════════
     const __isUserMessage = !eventType || eventType === "message" || eventType === "message_received";
     if (__isUserMessage && text && text.length > 0) {
-      // ═══ PRECIOS HANDLER (Combos Mundialistas + fallback calido) ═══
-      // Va PRIMERO porque "combo mundialista" debe responder con foto+precio
-      // (preciosHandler) y no con texto de quiniela (mundialHandler).
+      // ═══ PRECIOS HANDLER (Combos Mundialistas) — DESACTIVADO 2026-07-08 ═══
+      // El Mundial esta por terminar, ya no se necesitan los combos temporales.
+      // Codigo mantenido en services/preciosHandler.js por si se reactiva en otro evento.
+      // Para reactivar: descomentar el bloque de abajo.
+      /*
       try {
         const __precios = await require("./services/preciosHandler").handle({
           from, text, sendWatiMessage, sendWatiImage,
@@ -1335,6 +1337,7 @@ async function whatsappHandler(req, res) {
       } catch (e) {
         console.log("⚠️ preciosHandler error:", e?.message);
       }
+      */
 
       // ═══ MUNDIAL HANDLER (quiniela / Cotorreo 2026) ═══
       const __mundial = await require("./services/mundialHandler").handle({ from, text, sendWatiMessage });
