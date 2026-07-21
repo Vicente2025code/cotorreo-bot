@@ -1339,9 +1339,13 @@ async function whatsappHandler(req, res) {
       }
       */
 
-      // ═══ MUNDIAL HANDLER (quiniela / Cotorreo 2026) ═══
+      // ═══ MUNDIAL HANDLER (quiniela) — DESACTIVADO 2026-07-08 ═══
+      // Mundial casi termina, no se necesita mas la quiniela ni sus respuestas.
+      // Codigo mantenido en services/mundialHandler.js por si se reactiva.
+      /*
       const __mundial = await require("./services/mundialHandler").handle({ from, text, sendWatiMessage });
       if (__mundial?.handled) return res.sendStatus(200);
+      */
     }
 
     if (eventType === "sessionMessageSent") {
