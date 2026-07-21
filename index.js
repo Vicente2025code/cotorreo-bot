@@ -887,6 +887,13 @@ const payload = new URLSearchParams({
 
     console.log("📨 WATI status:", response.status);
     console.log("📨 WATI response:", text);
+
+    // Marcar en Redis que el bot acaba de enviar a este numero.
+    // Sirve para distinguir eco del bot (sessionMessageSent con BOT_SELF_EMAIL)
+    // de una respuesta manual de Vicente/Mariela desde WATI dashboard.
+    try {
+      await redis.set(`bot_sent:${whatsappNumber}`, "1", { ex: 20 });
+    } catch (_) {}
   } catch (err) {
     console.log("❌ Error enviando a WATI:", err?.message || err);
   }
@@ -938,6 +945,11 @@ async function sendWatiImage(to, imageUrl, caption = "") {
     const txt = await response.text();
     console.log("📨 WATI image status:", response.status, "resp:", txt.slice(0, 200));
     if (response.status >= 400) throw new Error(`WATI status ${response.status}`);
+
+    // Marcar en Redis que el bot acaba de enviar (ver sendWatiMessage arriba)
+    try {
+      await redis.set(`bot_sent:${whatsappNumber}`, "1", { ex: 20 });
+    } catch (_) {}
   } catch (e) {
     console.log("❌ Error enviando imagen WATI, fallback a texto:", e?.message);
     if (caption) {
@@ -1367,13 +1379,29 @@ async function whatsappHandler(req, res) {
       }
 
       // BOT_SELF_EMAIL: la cuenta admin bajo la cual el bot envía mensajes.
-      // WATI marca cada sendWatiMessage/sendWatiImage con este operatorEmail,
-      // y sin excluirlo el bot se auto-detecta como humano y entra en loop
-      // infinito de handoff → clientes quedan sin respuesta.
+      // WATI marca cada sendWatiMessage/sendWatiImage con este operatorEmail.
+      //
+      // PROBLEMA: si un HUMANO (Vicente/Mariela) responde desde WATI dashboard
+      // con la misma cuenta admin, tambien tiene ese email. Excluir email solo
+      // NO alcanza — hay que distinguir eco del bot vs humano usando la cuenta.
+      //
+      // SOLUCION: sendWatiMessage marca `bot_sent:{numero}` en Redis con TTL 20s.
+      // Si llega sessionMessageSent con BOT_SELF_EMAIL Y existe la marca -> eco del bot.
+      // Si llega con BOT_SELF_EMAIL pero NO existe la marca -> humano escribiendo
+      // desde WATI dashboard bajo la misma cuenta -> activar handoff.
       const BOT_SELF_EMAIL = process.env.BOT_SELF_EMAIL || "vicentebenitezg@gmail.com";
-      const isHuman = req.body?.operatorEmail &&
-                      !req.body.operatorEmail.includes("api-token-user") &&
-                      req.body.operatorEmail !== BOT_SELF_EMAIL;
+      const opEmail = req.body?.operatorEmail;
+      let esEcoDelBot = false;
+      if (opEmail === BOT_SELF_EMAIL && from) {
+        try {
+          const cleanFrom = String(from).replace(/\D/g, "");
+          const marca = await redis.get(`bot_sent:${cleanFrom}`);
+          esEcoDelBot = !!marca;
+        } catch (_) { esEcoDelBot = false; }
+      }
+      const isHuman = opEmail &&
+                      !opEmail.includes("api-token-user") &&
+                      !esEcoDelBot;
       if (isHuman && from) {
         const handoff = getUserHandoff(from);
         handoff.active = true;
