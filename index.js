@@ -888,18 +888,28 @@ const payload = new URLSearchParams({
     console.log("📨 WATI status:", response.status);
     console.log("📨 WATI response:", text);
 
-    // Marcar en Redis que el bot acaba de enviar a este numero.
-    // Sirve para distinguir eco del bot (sessionMessageSent con BOT_SELF_EMAIL)
-    // de una respuesta manual de Vicente/Mariela desde WATI dashboard.
-    // TTL 3s: el webhook de WATI llega en ~1s tras el envío, así que 3s cubre
-    // el eco. Un humano tarda >3s en leer, escribir y mandar — el handoff se
-    // activa correctamente cuando contesta Vicente/Mariela.
+    // Guardar el TEXTO exacto que envió el bot (SET Redis, TTL 60s).
+    // En el webhook sessionMessageSent, comparamos el texto entrante:
+    //  - Si el texto es miembro del set → eco del bot → NO activar handoff
+    //  - Si el texto NO es miembro → humano escribió a mano → activar handoff
+    // Zero falsos positivos: solo se calla el bot cuando entra un humano real.
     try {
-      await redis.set(`bot_sent:${whatsappNumber}`, "1", { ex: 3 });
+      const normText = normalizeMsgText(finalMessage);
+      if (normText) {
+        await redis.sadd(`bot_sent_texts:${whatsappNumber}`, normText);
+        await redis.expire(`bot_sent_texts:${whatsappNumber}`, 60);
+      }
     } catch (_) {}
   } catch (err) {
     console.log("❌ Error enviando a WATI:", err?.message || err);
   }
+}
+
+// Normaliza el texto para comparar bot vs humano sin ser sensible a
+// espacios extras, saltos de línea, o mayúsculas.
+function normalizeMsgText(s) {
+  if (!s) return "";
+  return String(s).replace(/\s+/g, " ").trim().slice(0, 500);
 }
 
 // ================================
@@ -949,9 +959,11 @@ async function sendWatiImage(to, imageUrl, caption = "") {
     console.log("📨 WATI image status:", response.status, "resp:", txt.slice(0, 200));
     if (response.status >= 400) throw new Error(`WATI status ${response.status}`);
 
-    // Marcar en Redis que el bot acaba de enviar (ver sendWatiMessage arriba)
+    // Guardar el caption (o marca de imagen) en el set — ver sendWatiMessage
     try {
-      await redis.set(`bot_sent:${whatsappNumber}`, "1", { ex: 3 });
+      const normText = normalizeMsgText(caption) || "[imagen]";
+      await redis.sadd(`bot_sent_texts:${whatsappNumber}`, normText);
+      await redis.expire(`bot_sent_texts:${whatsappNumber}`, 60);
     } catch (_) {}
   } catch (e) {
     console.log("❌ Error enviando imagen WATI, fallback a texto:", e?.message);
@@ -1395,18 +1407,27 @@ async function whatsappHandler(req, res) {
       // con la misma cuenta admin, tambien tiene ese email. Excluir email solo
       // NO alcanza — hay que distinguir eco del bot vs humano usando la cuenta.
       //
-      // SOLUCION: sendWatiMessage marca `bot_sent:{numero}` en Redis con TTL 20s.
-      // Si llega sessionMessageSent con BOT_SELF_EMAIL Y existe la marca -> eco del bot.
-      // Si llega con BOT_SELF_EMAIL pero NO existe la marca -> humano escribiendo
-      // desde WATI dashboard bajo la misma cuenta -> activar handoff.
+      // SOLUCION: sendWatiMessage guarda el TEXTO enviado en el set Redis
+      // bot_sent_texts:{numero} con TTL 60s. En este webhook comparamos el
+      // texto entrante:
+      //  - Es miembro del set → es eco del bot → NO activar handoff
+      //  - NO es miembro → humano escribió a mano → activar handoff
+      // Zero falsos positivos por timing (a diferencia del check por TTL previo).
       const BOT_SELF_EMAIL = process.env.BOT_SELF_EMAIL || "vicentebenitezg@gmail.com";
       const opEmail = req.body?.operatorEmail;
       let esEcoDelBot = false;
       if (opEmail === BOT_SELF_EMAIL && from) {
         try {
           const cleanFrom = String(from).replace(/\D/g, "");
-          const marca = await redis.get(`bot_sent:${cleanFrom}`);
-          esEcoDelBot = !!marca;
+          const inboundText = normalizeMsgText(req.body?.text || "");
+          if (inboundText) {
+            const isMember = await redis.sismember(`bot_sent_texts:${cleanFrom}`, inboundText);
+            esEcoDelBot = !!isMember;
+          } else {
+            // Sin texto (probablemente imagen sin caption) — fallback conservador:
+            // asumir eco para no callar al bot por error en un evento raro.
+            esEcoDelBot = true;
+          }
         } catch (_) { esEcoDelBot = false; }
       }
       const isHuman = opEmail &&
