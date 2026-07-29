@@ -891,8 +891,11 @@ const payload = new URLSearchParams({
     // Marcar en Redis que el bot acaba de enviar a este numero.
     // Sirve para distinguir eco del bot (sessionMessageSent con BOT_SELF_EMAIL)
     // de una respuesta manual de Vicente/Mariela desde WATI dashboard.
+    // TTL 3s: el webhook de WATI llega en ~1s tras el envío, así que 3s cubre
+    // el eco. Un humano tarda >3s en leer, escribir y mandar — el handoff se
+    // activa correctamente cuando contesta Vicente/Mariela.
     try {
-      await redis.set(`bot_sent:${whatsappNumber}`, "1", { ex: 20 });
+      await redis.set(`bot_sent:${whatsappNumber}`, "1", { ex: 3 });
     } catch (_) {}
   } catch (err) {
     console.log("❌ Error enviando a WATI:", err?.message || err);
@@ -948,7 +951,7 @@ async function sendWatiImage(to, imageUrl, caption = "") {
 
     // Marcar en Redis que el bot acaba de enviar (ver sendWatiMessage arriba)
     try {
-      await redis.set(`bot_sent:${whatsappNumber}`, "1", { ex: 20 });
+      await redis.set(`bot_sent:${whatsappNumber}`, "1", { ex: 3 });
     } catch (_) {}
   } catch (e) {
     console.log("❌ Error enviando imagen WATI, fallback a texto:", e?.message);
