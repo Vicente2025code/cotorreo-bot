@@ -187,7 +187,16 @@ Ya estás en manos de nuestro equipo 💚
 
 Te contestan por acá en breve. Si es urgente, también podés llamar al 6303 8030.`;
 
-const HANDOFF_DURATION_MS = 15 * 60 * 1000;
+// Ventana en la que el bot se queda callado tras entrar un humano.
+// 15 min resultó corto: el 10-ago Vicente atendió un chat con huecos de
+// 5-6 min entre respuestas y el bot despertaba a media conversación.
+// Configurable vía env var sin redeploy.
+const HANDOFF_DURATION_MS = (Number(process.env.HANDOFF_DURATION_MIN) || 30) * 60 * 1000;
+
+// SLA que se le pide al staff en la alerta. Deliberadamente MÁS CORTO que la
+// ventana de silencio: el bot aguanta 30 min, pero al equipo se le pide 15.
+// Si fueran iguales, el bot volvería a hablar justo cuando vence el plazo.
+const STAFF_SLA_MS = (Number(process.env.STAFF_SLA_MIN) || 15) * 60 * 1000;
 
 function getUserProfile(from) {
   if (!userProfile[from]) {
@@ -1121,9 +1130,10 @@ const HANDOFF_ALERT_NUMBERS = (process.env.HANDOFF_ALERT_NUMBERS || "50660127557
   .filter(Boolean);
 
 async function notifyHandoffAlert({ reason, clientPhone, clientName, originalText }) {
-  // Calcular hora "atender antes de" (ahora + 15 min) en hora Costa Rica
-  const fifteenMinFromNow = new Date(Date.now() + HANDOFF_DURATION_MS);
-  const hhmm = fifteenMinFromNow.toLocaleTimeString("es-CR", {
+  // Calcular hora "atender antes de" en hora Costa Rica. Usa el SLA del staff,
+  // no la ventana de silencio del bot (son cosas distintas: ver STAFF_SLA_MS).
+  const slaDeadline = new Date(Date.now() + STAFF_SLA_MS);
+  const hhmm = slaDeadline.toLocaleTimeString("es-CR", {
     timeZone: "America/Costa_Rica",
     hour: "2-digit",
     minute: "2-digit",
@@ -1145,6 +1155,56 @@ async function notifyHandoffAlert({ reason, clientPhone, clientName, originalTex
     targets_count: HANDOFF_ALERT_NUMBERS.length,
     client: phoneMasked
   });
+}
+
+// ================================
+// FALLBACK ESCALADO
+// ================================
+// El aiFallbackService tiene una frase de escape fija para cuando no sabe algo.
+// Repetirla textual una y otra vez le deja el trabajo al cliente ("escribí
+// asesor") y no le avisa a nadie: si el cliente no escribe la palabra, la
+// consulta se pierde en silencio. El 10-ago salió 3 veces idéntica en un mismo
+// chat y sólo se salvó porque Vicente estaba mirando la bandeja.
+//
+// Regla: a la SEGUNDA vez seguida que el bot no sepa, deja de repetir y escala
+// solo — activa handoff, avisa al staff y le dice al cliente que ya lo hizo.
+// La racha se resetea en cuanto el bot logra responder algo útil.
+const FALLBACK_STREAK_TTL_S = 30 * 60;
+const FALLBACK_ESCALA_EN = Number(process.env.FALLBACK_ESCALA_EN) || 2;
+
+const FALLBACK_ESCALADO_MESSAGE = `Esto mejor te lo contesta alguien del equipo 💚
+
+Ya les avisé — te escriben por acá en un momento.
+Si es urgente, llamá al 6303 8030.`;
+
+// Detecta la frase de escape del prompt. Hay dos variantes ("Esa info exacta
+// no la tengo a mano" y "Esa no la tengo a mano"); ambas comparten este trozo.
+function esFraseDeEscape(reply) {
+  return String(reply || "").toLowerCase().includes("no la tengo a mano");
+}
+
+function fallbackStreakKey(from) {
+  return `fallback_streak:${String(from).replace(/\D/g, "")}`;
+}
+
+async function bumpFallbackStreak(from) {
+  try {
+    const key = fallbackStreakKey(from);
+    const n = await redis.incr(key);
+    await redis.expire(key, FALLBACK_STREAK_TTL_S);
+    return n;
+  } catch (e) {
+    // Si Redis falla, tratar como primera vez: preferimos repetir la frase
+    // una vez de más antes que escalar a un humano por error.
+    console.log("fallback streak error:", e.message);
+    return 1;
+  }
+}
+
+async function resetFallbackStreak(from) {
+  try {
+    await redis.del(fallbackStreakKey(from));
+  } catch (_) {}
 }
 
 
@@ -1662,6 +1722,41 @@ async function whatsappHandler(req, res) {
           plazaAbierto: schedule.isOpen,
           promoDelDia: getPromoDelDia()
         });
+
+        // Fallback escalado: si la IA soltó la frase de escape, contar. A la
+        // segunda seguida no la repetimos — pasamos el chat a un humano.
+        if (esFraseDeEscape(aiReply)) {
+          const streak = await bumpFallbackStreak(from);
+
+          if (streak >= FALLBACK_ESCALA_EN) {
+            const handoff = getUserHandoff(from);
+            handoff.active = true;
+            handoff.until = Date.now() + HANDOFF_DURATION_MS;
+            handoff.notified = true;
+            saveHandoffState();
+            await resetFallbackStreak(from);
+
+            await sendWatiMessage(from, FALLBACK_ESCALADO_MESSAGE);
+
+            notifyHandoffAlert({
+              reason: "🤖 Bot sin respuesta (2 seguidas)",
+              clientPhone: from,
+              clientName: profile.name,
+              originalText: rawText
+            }).catch(e => console.log("alert error:", e?.message));
+
+            logEvent("fallback_escalated", {
+              from,
+              streak,
+              text_preview: (text || "").slice(0, 80)
+            });
+
+            return res.sendStatus(200);
+          }
+        } else {
+          // El bot sí supo responder — la racha vuelve a cero.
+          await resetFallbackStreak(from);
+        }
 
         await sendWatiMessage(from, aiReply);
 
