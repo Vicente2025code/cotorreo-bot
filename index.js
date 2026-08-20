@@ -1421,6 +1421,19 @@ async function whatsappHandler(req, res) {
       const __mundial = await require("./services/mundialHandler").handle({ from, text, sendWatiMessage });
       if (__mundial?.handled) return res.sendStatus(200);
       */
+
+      // ═══ REWARDS HANDLER — Auto-responde con link a app Rewards ═══
+      // Activo desde 2026-08-19 post-migracion sin link en comunicado.
+      // Solo dispara si mensaje corto contiene keywords claros (link, app, sellos, etc)
+      // y no responde mas de 1 vez cada 24h al mismo numero.
+      try {
+        const __rewards = await require("./services/rewardsHandler").handle({
+          from, text, sendWatiMessage,
+        });
+        if (__rewards?.handled) return res.sendStatus(200);
+      } catch (e) {
+        console.log("⚠️ rewardsHandler error:", e?.message);
+      }
     }
 
     if (eventType === "sessionMessageSent") {
