@@ -351,16 +351,79 @@ function getPromoDelDia() {
   const dow = getPlazaSchedule().dow; // 0=domingo … 6=sábado
   // Copy de marketing: voseo CR, beneficio claro, gancho emocional.
   // Se ven arriba del menú principal cuando Plaza está abierta.
-  const promos = {
-    0: "🌅 *Domingo de familia*: cancha de pádel ₡6.000 todo el día en Alpadel + *Desayuno + Pádel* a ₡20.000 (1h cancha, 4 desayunos y palas, 8am–12md). Mañana o tarde, vení sin apuro 💛",
-    1: "🌮 *Lunes al pastor*: pedís 4 tacos y *te llevás 8*. Trompo, piña y limón — la cura para empezar la semana 💪",
-    2: "🍣 *Martes sushiero*: rollo + rollo gratis. Pedís 1 y *te llevás 2* — perfecto para vos y un cómplice 🤝",
-    3: "🥩 *Miércoles de birria*: 2x1 en quesabirrias. Pedís 5, *te llevás 10*, con consomé bien caliente para hundir 🔥",
-    4: "🍔 *Jueves burger*: 3x2 en hamburguesas. Pedís 2, *llegan 3 a la mesa*. La excusa perfecta para llamar al trío 👊",
-    5: "🎾 *Viernes Glow Pádel*: cancha en luz negra ₡5.000 p/p (1.5h + bebida + pala, reservá ya — cupo limitado) 🌟  ·  🍺 *Baldazo Nacional*: 6 cervezas a ₡6.000 para arrancar el finde frío ❄️",
-    6: "🌃 *Sábado sin reglas*: cocina abierta hasta medianoche. Vení a comer, quedate a tomar — menú completo, birra fría, y el ambiente que sabés 🍻"
-  };
-  return promos[dow] || "";
+  const dia = PROMOS_POR_DIA[dow];
+  if (!dia) return "";
+  // Versión combinada: la que se muestra en el menú principal y la que va
+  // como contexto a la IA. Junta comida y pádel cuando el día tiene las dos.
+  return [dia.comida, dia.padel].filter(Boolean).join("  ·  ");
+}
+
+// Promos separadas por tipo. Antes era un solo texto por día, lo que impedía
+// mostrarle al que viene a reservar cancha la promo que le toca. Un día puede
+// tener promo de comida, de pádel, o las dos.
+const PROMOS_POR_DIA = {
+  0: {
+    padel: "🌅 *Domingo de familia*: cancha de pádel ₡6.000 todo el día en Alpadel + *Desayuno + Pádel* a ₡20.000 (1h cancha, 4 desayunos y palas, 8am–12md). Mañana o tarde, vení sin apuro 💛",
+    comida: "🍳 *Desayuno + Pádel* a ₡20.000: 1h de cancha, 4 desayunos, palas y bolas (8am–12md) 💛"
+  },
+  1: {
+    comida: "🌮 *Lunes al pastor*: pedís 4 tacos y *te llevás 8*. Trompo, piña y limón — la cura para empezar la semana 💪"
+  },
+  2: {
+    comida: "🍣 *Martes sushiero*: rollo + rollo gratis. Pedís 1 y *te llevás 2* — perfecto para vos y un cómplice 🤝 (aplica en 6 rollos: escribí *cuáles sushis* y te digo en cuáles)"
+  },
+  3: {
+    comida: "🥩 *Miércoles de birria*: 2x1 en quesabirrias. Pedís 5, *te llevás 10*, con consomé bien caliente para hundir 🔥"
+  },
+  4: {
+    comida: "🍔 *Jueves burger*: 3x2 en hamburguesas. Pedís 2, *llegan 3 a la mesa*. La excusa perfecta para llamar al trío 👊"
+  },
+  5: {
+    padel: "🎾 *Viernes Glow Pádel*: cancha en luz negra ₡5.000 p/p (1.5h + bebida + pala, reservá ya — cupo limitado) 🌟",
+    comida: "🍺 *Baldazo Nacional*: 6 cervezas a ₡6.000 para arrancar el finde frío ❄️"
+  },
+  6: {
+    comida: "🌃 *Sábado sin reglas*: cocina abierta hasta medianoche. Vení a comer, quedate a tomar — menú completo, birra fría, y el ambiente que sabés 🍻"
+  }
+};
+
+// Devuelve la promo que le toca a este cliente según lo que vino a hacer.
+// Si el día no tiene promo del tipo pedido, cae a la otra: al que reserva
+// cancha un martes le sirve saber que hay 2x1 de sushi — es justo el cruce
+// de negocio que queremos (juegan y no comen).
+function getPromoPara(tipo) {
+  const dia = PROMOS_POR_DIA[getPlazaSchedule().dow];
+  if (!dia) return "";
+  const otro = tipo === "padel" ? "comida" : "padel";
+  return dia[tipo] || dia[otro] || "";
+}
+
+// ¿Ya le mostramos hoy la promo de este tipo a este cliente?
+// Regla: UNA vez por día por tipo. Repetirla en cada mensaje la convierte en
+// ruido y la gente deja de leerla. `nx` sólo escribe si la clave no existía,
+// así que el primer llamado del día devuelve true y los demás false.
+async function marcarPromoMostrada(from, tipo) {
+  try {
+    const hoy = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Costa_Rica" });
+    const puesta = await redis.set(`promo_shown:${from}:${tipo}:${hoy}`, "1", { nx: true, ex: 86400 });
+    return Boolean(puesta);
+  } catch (e) {
+    // Si Redis falla preferimos NO mostrarla: mejor perder una impresión que
+    // spamear al cliente en cada mensaje.
+    console.log("promo shown flag error:", e.message);
+    return false;
+  }
+}
+
+// Cola para pegar al final de una respuesta. Va al final a propósito:
+// primero se le resuelve lo que pidió, después se le ofrece.
+async function getPromoCola(from, tipo) {
+  if (!getPlazaSchedule().isOpen) return "";
+  const promo = getPromoPara(tipo);
+  if (!promo) return "";
+  const primeraVezHoy = await marcarPromoMostrada(from, tipo);
+  if (!primeraVezHoy) return "";
+  return `\n\n━━━━━━\n🎉 *Aprovechá hoy:* ${promo}`;
 }
 
 function getPromoNotice() {
@@ -370,6 +433,54 @@ function getPromoNotice() {
   const promo = getPromoDelDia();
   if (!promo) return "";
   return `🎉 *Hoy:* ${promo}\n\n`;
+}
+
+// Rolls que entran en el 2x1 de los martes. Lista CERRADA dada por Vicente
+// (26-ago-2026). NO todos los rolls del menú aplican: quedan fuera Rib Eye
+// Teriyaki, Salmon Lovers y Crazy Roll. Si se agrega un roll nuevo al menú,
+// hay que decidir a mano si entra acá — nunca asumir que sí.
+const SUSHIS_2X1 = [
+  "California Roll",
+  "Tico Roll",
+  "Tico Especial Roll",
+  "Camarón Roll",
+  "Caterpillar Roll",
+  "Pollo Teriyaki Roll"
+];
+
+// ¿Este platillo del menú aplica al 2x1? Los nombres del catálogo traen
+// sufijo ("California Roll (10 pzas)"), por eso comparamos por prefijo.
+function aplicaSushi2x1(nombrePlatillo) {
+  const n = String(nombrePlatillo || "").trim();
+  return SUSHIS_2X1.some((roll) => n.startsWith(roll));
+}
+
+// Respuesta canónica cuando preguntan cuáles sushis entran en el 2x1.
+// Se usa en el interceptor, en el submenú de sushi y como contexto de la IA,
+// para que las tres vías digan exactamente lo mismo.
+// Rollos que ANTES entraban al 2x1 y ahora no. Se nombran explícitamente:
+// la gente venía acostumbrada a que aplicaba en todos, así que decir "los
+// demás no aplican" los deja adivinando y el reclamo cae en caja. Mejor que
+// lo lean acá con nombre y apellido.
+const SUSHIS_FUERA_2X1 = [
+  "Rib Eye Teriyaki Roll",
+  "Salmon Lovers Roll",
+  "Crazy Roll"
+];
+
+function getSushi2x1Text() {
+  let reply = "🍣 *2x1 en sushi — todos los martes*\n";
+  // "del mismo" va pegado a la promesa a propósito: si se deja para el final,
+  // el cliente ya leyó "te llevás 2" y asumió que podía combinar rollos.
+  reply += "Pedís 1 rollo y te llevás 2 *del mismo*. El segundo va por la casa.\n\n";
+  reply += "*Ahora aplica en estos 6 rollos:*\n";
+  SUSHIS_2X1.forEach((roll) => {
+    reply += `• ${roll}\n`;
+  });
+  reply += `\nYa no entran en el 2x1: ${SUSHIS_FUERA_2X1.join(", ")}. `;
+  reply += "Los seguís pidiendo del menú al precio de siempre.\n\n";
+  reply += "Válido solo los martes, en Plaza Cotorreo y Cotorreo Taquería.";
+  return reply;
 }
 
 function getMenuPrincipalText(name) {
@@ -767,10 +878,19 @@ function getCategoryText(categoryKey, hasCartItems) {
   if (!category) return getPlazaCategoriesText();
 
   let reply = `🍽️ ${category.label}\nElige tu favorito y armamos tu pedido en segundos:\n\n`;
+  let hayAlgun2x1 = false;
   category.items.forEach((item, index) => {
     const emojiNumber = getNumberEmoji(getItemDisplayNumber(index));
-    reply += `${emojiNumber} ${item.name} - ${formatCRC(item.price)}\n`;
+    // Marcamos los rollos del 2x1 en la propia lista: es donde el cliente
+    // está decidiendo, y evita que pida uno que no aplica y reclame después.
+    const marca = aplicaSushi2x1(item.name) ? " 🎉" : "";
+    if (marca) hayAlgun2x1 = true;
+    reply += `${emojiNumber} ${item.name} - ${formatCRC(item.price)}${marca}\n`;
   });
+
+  if (hayAlgun2x1) {
+    reply += "\n🎉 = entra en el *2x1 de los martes* (pedís 1, te llevás 2).\n";
+  }
 
   reply += "\n👉 Para agregar al carrito, escribe el número del platillo.\n";
   if (hasCartItems) reply += "🛒 Escribe 'carrito' para revisar tu carrito.\n";
@@ -1629,7 +1749,8 @@ async function whatsappHandler(req, res) {
             `🎾 ¡Dale, ${firstName}! Reservá tu cancha acá:\n\n` +
             `👉 ${link}\n\n` +
             `Ya te identificamos por tu WhatsApp — entrás directo al form. Llenalo y te confirmamos por este chat.\n\n` +
-            `Si preferís que te atienda una persona, escribí *asesor*.`
+            `Si preferís que te atienda una persona, escribí *asesor*.` +
+            await getPromoCola(from, "padel")
           );
           userState[from] = "MENU_PRINCIPAL";
           logEvent("reservation_link_sent", { from, kind: "alpadel" });
@@ -1642,7 +1763,8 @@ async function whatsappHandler(req, res) {
             `🍽️ ¡Dale, ${firstName}! Reservá tu mesa acá:\n\n` +
             `👉 ${link}\n\n` +
             `Ya te identificamos por tu WhatsApp — entrás directo al form. Llenalo y te confirmamos por este chat.\n\n` +
-            `Si preferís que te atienda una persona, escribí *asesor*.`
+            `Si preferís que te atienda una persona, escribí *asesor*.` +
+            await getPromoCola(from, "comida")
           );
           userState[from] = "MENU_PRINCIPAL";
           logEvent("reservation_link_sent", { from, kind: "cotorreo" });
@@ -1655,7 +1777,8 @@ async function whatsappHandler(req, res) {
         await sendWatiMessage(from,
           `👋 ¡Hola ${firstName}! Reservá acá y elegís dentro entre cancha o mesa:\n\n` +
           `👉 ${linkAmbiguo}\n\n` +
-          `Si preferís hablar con una persona, escribí *asesor*.`
+          `Si preferís hablar con una persona, escribí *asesor*.` +
+          await getPromoCola(from, "comida")
         );
         userState[from] = "MENU_PRINCIPAL";
         logEvent("reservation_link_sent", { from, kind: "ambiguous" });
@@ -1698,6 +1821,49 @@ async function whatsappHandler(req, res) {
       }
     }
 
+    // ================================
+    // F1.10 — INTERCEPTOR 2x1 DE SUSHI
+    // La promo del martes existía en el bot pero nunca decía CUÁLES rollos
+    // aplican, así que la pregunta terminaba en la IA (que se la inventaba)
+    // o en un humano. Acá la contestamos en código, con la lista cerrada.
+    // Se responde cualquier día de la semana: si alguien pregunta un jueves,
+    // igual quiere saber para volver el martes.
+    // ================================
+    {
+      const nrm = (text || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[¡!¿?]/g, "")
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "");
+
+      // Pregunta explícita por cuáles aplican, con o sin la palabra "sushi".
+      const preguntaCuales =
+        /(cuales|cual|que|en que|aplica|aplican|incluye|incluyen|entran|entra|sirve|valido|validos)/.test(nrm) &&
+        /(sushi|sushis|roll|rolls|rollo|rollos|2x1|2 x 1|dos por uno)/.test(nrm);
+
+      // "menu de sushi", "menu sushi", "que sushis tienen"
+      const pideMenuSushi =
+        /(menu|carta|lista|opciones|tienen|hay)/.test(nrm) &&
+        /(sushi|sushis|roll|rolls|rollo|rollos)/.test(nrm);
+
+      // "2x1 sushi" a secas, sin pregunta armada
+      const promoSushiDirecta =
+        /(2x1|2 x 1|dos por uno|promo)/.test(nrm) &&
+        /(sushi|sushis|roll|rolls|rollo|rollos)/.test(nrm);
+
+      if ((preguntaCuales || pideMenuSushi || promoSushiDirecta) &&
+          !hasActiveUserFlow(userState[from], profile)) {
+        userState[from] = "MENU_PRINCIPAL";
+        await sendWatiMessage(from,
+          getSushi2x1Text() +
+          "\n\n👉 Escribí *menú* para ver la carta completa y armar tu pedido."
+        );
+        logEvent("sushi_2x1_info_sent", { from, text_preview: (text || "").slice(0, 60) });
+        return res.sendStatus(200);
+      }
+    }
+
     const hasHumanHandoff = isHandoffActive(from);
     const hasActiveFlow = hasActiveUserFlow(userState[from], profile);
     const matchedFlowIntent = matchesCurrentFlowIntent(text);
@@ -1733,7 +1899,11 @@ async function whatsappHandler(req, res) {
         const aiReply = await getSimpleAIReply(text, {
           diaSemana,
           plazaAbierto: schedule.isOpen,
-          promoDelDia: getPromoDelDia()
+          promoDelDia: getPromoDelDia(),
+          // Lista cerrada de rollos del 2x1. Va como contexto para que la IA
+          // nunca invente cuáles aplican si la pregunta se le escapa al
+          // interceptor F1.10.
+          sushis2x1: SUSHIS_2X1
         });
 
         // Fallback escalado: si la IA soltó la frase de escape, contar. A la
@@ -1771,7 +1941,11 @@ async function whatsappHandler(req, res) {
           await resetFallbackStreak(from);
         }
 
-        await sendWatiMessage(from, aiReply);
+        // La promo va sólo cuando el bot SÍ resolvió. Si acabamos de decirle
+        // "no lo tengo a mano" o de pasarlo a un humano, meterle una promo
+        // encima queda mal — primero se resuelve, después se vende.
+        const colaIA = esFraseDeEscape(aiReply) ? "" : await getPromoCola(from, "comida");
+        await sendWatiMessage(from, aiReply + colaIA);
 
         return res.sendStatus(200);
       } catch (error) {
@@ -1877,7 +2051,7 @@ async function whatsappHandler(req, res) {
 
       if (text === "2") {
         userState[from] = "PLAZA_PROMOCIONES";
-        await sendWatiMessage(from, "🎉 Promociones Plaza Cotorreo\n\n📅 Lunes a jueves (Plaza Cotorreo y Plaza Encuentro):\n• Lunes: 2x1 Tacos al Pastor (compra 4, lleva 8)\n• Martes: 2x1 Sushi (compra 1 rollo, lleva 2)\n• Miércoles: 2x1 Quesabirrias (compra 5, lleva 10)\n• Jueves: 3x2 Hamburguesas (compra 2, lleva 3)\n\n🍳 Desayuno + Pádel Domingo y L-V: ₡20.000\n(8am-12md, 1h cancha dobles + 4 desayunos + palas y bolas)\n\n🎾 Pádel + Bebidas L-V 4pm-10pm\n(dobles 4 bebidas / singles 2 bebidas)\n\n🌟 Glow Pádel Viernes: ₡5.000 p/p\n(1.5h juego + 1 bebida + pala, requiere reserva)\n\n🍺 Baldazo Nacional Viernes: ₡6.000\n(6 cervezas Nacional)\n\n🍽️ Almuerzo Ejecutivo L-V 11:30am-2pm: ₡3.800\n\n🏆 Cotorreo Rewards: ₡10.000 = 1 sello, 20 sellos = ₡15.000\n(primer registro: 1 bebida por mesa)\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal");        return res.sendStatus(200);
+        await sendWatiMessage(from, "🎉 Promociones Plaza Cotorreo\n\n📅 Lunes a jueves (Plaza Cotorreo y Plaza Encuentro):\n• Lunes: 2x1 Tacos al Pastor (compra 4, lleva 8)\n• Martes: 2x1 Sushi (compra 1 rollo, lleva 2) — aplica en 6 rollos, escribí *cuáles sushis*\n• Miércoles: 2x1 Quesabirrias (compra 5, lleva 10)\n• Jueves: 3x2 Hamburguesas (compra 2, lleva 3)\n\n🍳 Desayuno + Pádel Domingo y L-V: ₡20.000\n(8am-12md, 1h cancha dobles + 4 desayunos + palas y bolas)\n\n🎾 Pádel + Bebidas L-V 4pm-10pm\n(dobles 4 bebidas / singles 2 bebidas)\n\n🌟 Glow Pádel Viernes: ₡5.000 p/p\n(1.5h juego + 1 bebida + pala, requiere reserva)\n\n🍺 Baldazo Nacional Viernes: ₡6.000\n(6 cervezas Nacional)\n\n🍽️ Almuerzo Ejecutivo L-V 11:30am-2pm: ₡3.800\n\n🏆 Cotorreo Rewards: ₡10.000 = 1 sello, 20 sellos = ₡15.000\n(primer registro: 1 bebida por mesa)\n\n9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal");        return res.sendStatus(200);
       }
 
       if (text === "3") {
