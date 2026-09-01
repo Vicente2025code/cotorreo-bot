@@ -344,11 +344,20 @@ async function getSimpleAIReply(messageText, context = {}) {
   const estadoPlaza = typeof context.plazaAbierto === "boolean"
     ? (context.plazaAbierto ? "Plaza Cotorreo está ABIERTA ahora." : "Plaza Cotorreo está CERRADA ahora.")
     : "";
+  // Lista cerrada: si preguntan por el 2x1 de sushi, la IA debe usar SOLO
+  // estos rollos y decir explícitamente que los demás no aplican.
+  const sushiLine = Array.isArray(context.sushis2x1) && context.sushis2x1.length
+    ? `El 2x1 de sushi es solo los MARTES y aplica ÚNICAMENTE en estos rollos: ${context.sushis2x1.join(", ")}. ` +
+      `Ningún otro rollo del menú aplica (quedaron fuera Rib Eye Teriyaki Roll, Salmon Lovers Roll y Crazy Roll). ` +
+      `El rollo de cortesía es SIEMPRE del mismo que pidió: no se pueden combinar dos rollos distintos. ` +
+      `No inventes ni agregues rollos a esta lista.`
+    : "";
 
   const contextHeader = [
     `Hoy es ${diaSemana}.`,
     estadoPlaza,
-    promoLine
+    promoLine,
+    sushiLine
   ].filter(Boolean).join("\n");
 
   try {
