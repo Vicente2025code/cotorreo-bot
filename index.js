@@ -1554,6 +1554,18 @@ async function whatsappHandler(req, res) {
       } catch (e) {
         console.log("⚠️ rewardsHandler error:", e?.message);
       }
+
+      // ═══ PROMO SUSHI HANDLER — Ventana temporal 14-sep al 21-sep-2026 ═══
+      // Aviso: este martes 15 NO hay 2x1 Sushi, regresa el martes 22.
+      // Se apaga solo despues del 22 sep (chequea fecha internamente).
+      try {
+        const __sushi = await require("./services/promoSushiHandler").handle({
+          from, text, sendWatiMessage,
+        });
+        if (__sushi?.handled) return res.sendStatus(200);
+      } catch (e) {
+        console.log("⚠️ promoSushiHandler error:", e?.message);
+      }
     }
 
     if (eventType === "sessionMessageSent") {
