@@ -1,15 +1,16 @@
 // promoSushiHandler.js
 // Responde automáticamente sobre el 2x1 de Sushi cuando el cliente pregunta.
-// Ventana: desde el 14-sep-2026 hasta el 21-sep-2026 23:59 CR (UTC-6).
-// El martes 22 la promo vuelve, entonces el handler se apaga solo.
+// Ventana: HOY (14-sep-2026) y MAÑANA (15-sep-2026) hasta el fin del día CR.
+// A partir del 16 el handler se apaga solo — el bot vuelve a comportarse
+// como siempre (sin este mensaje especial).
 //
 // Estilo: marketing + vendedor tico.
 // Anti-spam: 1 vez cada 24 h por número.
 
 const RE_KEYS = /\b(sushi|2\s*x\s*1\s*sushi|martes\s*sushi|martes\s*de\s*sushi|kumo|rollos?|promo\s*sushi|2\s*x\s*1|dos\s*por\s*uno)\b/i;
 
-// Fecha límite: 21 sep 2026 23:59 CR (UTC-6 → 22 sep 05:59 UTC)
-const FECHA_LIMITE_UTC = new Date("2026-09-22T05:59:00Z").getTime();
+// Fecha límite: 15 sep 2026 23:59 CR (UTC-6 → 16 sep 05:59 UTC)
+const FECHA_LIMITE_UTC = new Date("2026-09-16T05:59:00Z").getTime();
 
 const respondidos = new Map(); // tel -> timestamp
 const TTL_MS = 24 * 60 * 60 * 1000;
