@@ -392,9 +392,23 @@ const PROMOS_POR_DIA = {
 // cancha un martes le sirve saber que hay 2x1 de sushi — es justo el cruce
 // de negocio que queremos (juegan y no comen).
 function getPromoPara(tipo) {
-  const dia = PROMOS_POR_DIA[getPlazaSchedule().dow];
+  const dow = getPlazaSchedule().dow;
+  const dia = PROMOS_POR_DIA[dow];
   if (!dia) return "";
   const otro = tipo === "padel" ? "comida" : "padel";
+
+  // Pausa 2x1 sushi hasta 15-sep-2026 23:59 CR (16-sep 05:59 UTC).
+  // Si hoy es martes durante la ventana, no soltamos el "Martes sushiero"
+  // al final de las respuestas — decimos que regresa el 22.
+  const PAUSA_SUSHI_HASTA = new Date("2026-09-16T05:59:00Z").getTime();
+  if (dow === 2 && Date.now() < PAUSA_SUSHI_HASTA) {
+    if (tipo === "comida") {
+      return "🍣 *Esta semana el 2x1 de sushi le da descanso.* Regresa el martes 22 en Kumo 🙌";
+    }
+    // Si pidió padel un martes, mostrale otra promo — no la de sushi.
+    return dia[tipo] || "";
+  }
+
   return dia[tipo] || dia[otro] || "";
 }
 
@@ -1883,6 +1897,29 @@ async function whatsappHandler(req, res) {
       if ((preguntaCuales || pideMenuSushi || promoSushiDirecta) &&
           !hasActiveUserFlow(userState[from], profile)) {
         userState[from] = "MENU_PRINCIPAL";
+
+        // ═══ PAUSA TEMPORAL 2x1 SUSHI — hasta 15-sep-2026 23:59 CR ═══
+        // El 2x1 de este martes 15-sep no va. El interceptor normal decía
+        // "SÍ hay 2x1" y confundía; durante la ventana respondemos con la
+        // pausa. Después del 16-sep 05:59 UTC vuelve al mensaje de siempre.
+        const PAUSA_SUSHI_HASTA = new Date("2026-09-16T05:59:00Z").getTime();
+        if (Date.now() < PAUSA_SUSHI_HASTA) {
+          await sendWatiMessage(from,
+            "¡Hola! 🍣\n\n" +
+            "Qué bueno que nos preguntás por el *2x1 en Sushi* — sos de las personas que no se pierden un martes con nosotros 🙌\n\n" +
+            "*Esta semana el 2x1 le da descanso.* Este martes 15 de septiembre NO habrá 2x1.\n\n" +
+            "📆 *Regresa el martes 22 de septiembre* en Kumo (Plaza Cotorreo) con los mismos rollos de siempre y esa misma promo que amás.\n\n" +
+            "Mientras tanto, si te agarran ganas de venir esta semana:\n" +
+            "🌮 *Lunes* – 2x1 Tacos al Pastor\n" +
+            "🌮 *Miércoles* – 2x1 Quesabirrias\n" +
+            "🍔 *Jueves* – 3x2 Hamburguesas Pits\n" +
+            "🍽️ *L a V* – Menú Ejecutivo ₡3.800 (11:30 am a 2 pm)\n\n" +
+            "¿Querés que te aparte mesa para el martes 22 desde ya? Contame para cuántos."
+          );
+          logEvent("sushi_pausa_info_sent", { from, text_preview: (text || "").slice(0, 60) });
+          return res.sendStatus(200);
+        }
+
         await sendWatiMessage(from,
           getSushi2x1Text() +
           "\n\n👉 Escribí *menú* para ver la carta completa y armar tu pedido."
