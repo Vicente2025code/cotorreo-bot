@@ -1519,6 +1519,22 @@ async function whatsappHandler(req, res) {
     // ═══════════════════════════════════════════════════════════════════
     const __isUserMessage = !eventType || eventType === "message" || eventType === "message_received";
     if (__isUserMessage && text && text.length > 0) {
+      // ═══ EMPLEADOS PILOTO MI TRABAJO — silenciar bot temporalmente ═══
+      // 18 colaboradores recibieron el aviso de RRHH (14-sep-2026) con el link
+      // del fichaje móvil. Van a responder "ENTERADO(A)", "gracias", "app",
+      // etc., y palabras como "app" o "sellos" gatillarían el rewardsHandler.
+      // Para no confundirlos con respuestas cruzadas, el bot los ignora
+      // durante el piloto. Retirar cuando termine.
+      try {
+        const { esEmpleadoPiloto } = require("./services/empleadosBlocklist");
+        if (esEmpleadoPiloto(from)) {
+          console.log(`🔇 empleado piloto — bot silenciado para ${from.slice(-4)}`);
+          return res.sendStatus(200);
+        }
+      } catch (e) {
+        console.log("⚠️ empleadosBlocklist error:", e?.message);
+      }
+
       // ═══ PRECIOS HANDLER (Combos Mundialistas) — DESACTIVADO 2026-07-08 ═══
       // El Mundial esta por terminar, ya no se necesitan los combos temporales.
       // Codigo mantenido en services/preciosHandler.js por si se reactiva en otro evento.
