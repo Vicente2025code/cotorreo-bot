@@ -3237,10 +3237,13 @@ app.post("/cron/mundial-oleada", async (req, res) => {
   }
 });
 
-// Cron interno node-cron — todos los dias 6 PM CR (= 00:00 UTC dia siguiente)
+// Cron interno node-cron — DESACTIVADO 2026-09-15
+// El Mundial ya terminó. El cron seguía enganchando contactos nuevos con tag
+// cotorreo_crm cada tarde a las 6 PM y les mandaba la invitación a la quiniela.
+// El endpoint HTTP /cron/mundial-oleada queda por si se necesita disparar manual.
+/*
 try {
   const cron = require("node-cron");
-  // "0 18 * * *" en timezone America/Costa_Rica = 6:00 PM CR
   cron.schedule("0 18 * * *", async () => {
     console.log("[Mundial] CRON disparado 6pm CR");
     try {
@@ -3254,6 +3257,8 @@ try {
 } catch (e) {
   console.log("[Mundial] node-cron no disponible:", e.message);
 }
+*/
+console.log("[Mundial] CRON diario DESACTIVADO (Mundial terminado)");
 
 // ================================
 // ALPADEL — CRON ONE-SHOT: sabado 6 jun 2026 a las 12:00 PM CR
