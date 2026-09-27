@@ -527,6 +527,34 @@ const MENU_PRINCIPAL_BUTTONS = [
   { id: "3", text: "👤 Hablar asesor" }
 ];
 
+/**
+ * Traduce el texto de una etiqueta de botón a su id ("🎾 Jugar pádel" → "2").
+ * WATI a veces entrega el toque como texto plano en vez de como buttonReply;
+ * sin esto el bot no lo entendía y no contestaba nada.
+ * Devuelve null si el texto no es una etiqueta de botón conocida.
+ */
+function textoDeBotonAId(txt) {
+  const n = String(txt || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9 ]/g, " ")      // se van los emojis
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!n) return null;
+  for (const b of MENU_PRINCIPAL_BUTTONS) {
+    const etiqueta = b.text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9 ]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (n === etiqueta) return b.id;
+  }
+  return null;
+}
+
 async function sendMenuPrincipal(to, name) {
   const notice = getClosedNotice() || getPromoNotice();
   const saludo = name
@@ -1425,7 +1453,7 @@ function normalizeWatiPayload(body) {
     console.log("✅ Button reply parseado, id:", buttonReplyId);
   }
 
-  const rawText =
+  const rawTextCrudo =
     buttonReplyId ||
     (typeof b.text === "string" ? b.text : null) ||
     b.messageText ||
@@ -1435,6 +1463,13 @@ function normalizeWatiPayload(body) {
     b.messages?.[0]?.text ||
     b.messages?.[0]?.body ||
     "";
+
+  // Cuando WATI no manda el shape de botón sino el texto plano de la etiqueta
+  // ("🎾 Jugar pádel"), los handlers no lo reconocían y el bot se quedaba
+  // mudo. Medido el 27-sep: 5 toques de botón sin ninguna respuesta, 3 de
+  // ellos "Hablar asesor" — o sea, clientes pidiendo un humano sin que se
+  // disparara la alerta al staff. Acá traducimos la etiqueta de vuelta a su id.
+  const rawText = buttonReplyId || textoDeBotonAId(rawTextCrudo) || rawTextCrudo;
 
   // senderName: nombre del contacto desde WhatsApp.
   // Distintos shapes según versión del webhook de WATI / WhatsApp Cloud API.
