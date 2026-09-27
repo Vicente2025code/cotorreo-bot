@@ -13,6 +13,7 @@ const HANDOFF_FILE = "./handoff_state.json";
 const bodyParser = require("body-parser");
 const fetch = global.fetch || require("node-fetch");
 const { getSimpleAIReply } = require("./services/aiFallbackService");
+const { crearBuscador } = require("./services/catalogoBuscador");
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -496,6 +497,16 @@ function getSushi2x1Text() {
   reply += "Válido solo los martes, en Plaza Cotorreo y Cotorreo Taquería.";
   return reply;
 }
+
+// F1.11 — Buscador de platillos en código. La búsqueda del menú dejó de ser
+// trabajo del modelo: ver services/catalogoBuscador.js para el porqué.
+// Se arma a demanda porque PLAZA_MENU_CATEGORIES se declara más abajo.
+let _buscadorPlatillos = null;
+function platillos() {
+  if (!_buscadorPlatillos) _buscadorPlatillos = crearBuscador(PLAZA_MENU_CATEGORIES);
+  return _buscadorPlatillos;
+}
+
 
 function getMenuPrincipalText(name) {
   const notice = getClosedNotice() || getPromoNotice();
@@ -1961,6 +1972,17 @@ async function whatsappHandler(req, res) {
           weekday: "long",
           timeZone: "America/Costa_Rica"
         });
+        // F1.11 — El catálogo se busca en código, no en el prompt. Lo que
+        // salga de acá va arriba del contexto para que la IA no tenga que
+        // encontrarlo entre 115 renglones de menú.
+        const platosDelMensaje = platillos().buscarPlatillos(text);
+        if (platosDelMensaje.length) {
+          logEvent("platillos_detectados", {
+            from,
+            platillos: platosDelMensaje.map((p) => p.nombre)
+          });
+        }
+
         const aiReply = await getSimpleAIReply(text, {
           diaSemana,
           plazaAbierto: schedule.isOpen,
@@ -1968,7 +1990,8 @@ async function whatsappHandler(req, res) {
           // Lista cerrada de rollos del 2x1. Va como contexto para que la IA
           // nunca invente cuáles aplican si la pregunta se le escapa al
           // interceptor F1.10.
-          sushis2x1: SUSHIS_2X1
+          sushis2x1: SUSHIS_2X1,
+          platillosConfirmados: platillos().contextoPlatillos(platosDelMensaje)
         });
 
         // Fallback escalado: si la IA soltó la frase de escape, contar. A la
@@ -2009,8 +2032,23 @@ async function whatsappHandler(req, res) {
         // La promo va sólo cuando el bot SÍ resolvió. Si acabamos de decirle
         // "no lo tengo a mano" o de pasarlo a un humano, meterle una promo
         // encima queda mal — primero se resuelve, después se vende.
-        const colaIA = esFraseDeEscape(aiReply) ? "" : await getPromoCola(from, "comida");
-        await sendWatiMessage(from, aiReply + colaIA);
+        // F1.11 — Último filtro. Si la IA igual negó un platillo que sí
+        // vendemos, su respuesta NO sale: mandamos la armada desde el
+        // catálogo. Es el caso que nos costó la venta de Daya el 27-sep.
+        let respuestaFinal = aiReply;
+        if (platillos().niegaPlatilloReal(aiReply, platosDelMensaje)) {
+          respuestaFinal = platillos().respuestaPlatillos(platosDelMensaje);
+          logEvent("negacion_falsa_corregida", {
+            from,
+            platillos: platosDelMensaje.map((p) => p.nombre),
+            respuesta_ia: String(aiReply).slice(0, 160)
+          });
+          console.log("[F1.11] IA negó platillo real, respuesta reemplazada:",
+                      platosDelMensaje.map((p) => p.nombre).join(", "));
+        }
+
+        const colaIA = esFraseDeEscape(respuestaFinal) ? "" : await getPromoCola(from, "comida");
+        await sendWatiMessage(from, respuestaFinal + colaIA);
 
         return res.sendStatus(200);
       } catch (error) {
