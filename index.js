@@ -277,6 +277,7 @@ function hasActiveUserFlow(state, profile) {
     "PLAZA_HORARIOS",
     "PLAZA_UBICACION",
     "PLAZA_PAQUETES",
+    "FIESTA_FLUJO",
     "ALPADEL_MENU",
     "ASESOR",
     "VIEW_RESERVATIONS"
@@ -1471,6 +1472,11 @@ function normalizeWatiPayload(body) {
   // disparara la alerta al staff. Acá traducimos la etiqueta de vuelta a su id.
   const rawText = buttonReplyId || textoDeBotonAId(rawTextCrudo) || rawTextCrudo;
 
+  // ¿Vino de un toque de botón o lo escribió a mano? Importa para los flujos
+  // con menú numerado: un "3" tecleado es la opción 3, pero un "3" que salió
+  // del botón "Hablar asesor" es un cliente pidiendo un humano.
+  const esBoton = Boolean(buttonReplyId || textoDeBotonAId(rawTextCrudo));
+
   // senderName: nombre del contacto desde WhatsApp.
   // Distintos shapes según versión del webhook de WATI / WhatsApp Cloud API.
   const senderName =
@@ -1489,7 +1495,8 @@ function normalizeWatiPayload(body) {
     eventType: typeof eventType === "string" ? eventType : null,
     from: from ? String(from).trim() : null,
     rawText: (rawText || "").toString(),
-    senderName: senderName ? String(senderName).trim() : null
+    senderName: senderName ? String(senderName).trim() : null,
+    esBoton
   };
 }
 
@@ -1504,7 +1511,7 @@ async function whatsappHandler(req, res) {
     if (!isDemoSession(req.body?.waId)) {
       console.log("📥 WEBHOOK RAW:", JSON.stringify(req.body, null, 2));
     }
-    const { eventType, from, rawText, senderName } = normalizeWatiPayload(req.body);
+    const { eventType, from, rawText, senderName, esBoton } = normalizeWatiPayload(req.body);
     const text = rawText.trim().toLowerCase();
 
     if (!from) return res.sendStatus(200);
@@ -1811,6 +1818,41 @@ async function whatsappHandler(req, res) {
     }
 
     // ================================
+    // FIESTAS — Califica y cotiza (empresa, fin de curso, cumpleaños)
+    //
+    // VA ANTES DEL SHORTCUT DE RESERVAS A PROPÓSITO: "fiesta de la empresa
+    // en las canchas" contiene "canchas", así que el shortcut lo agarraba
+    // y mandaba el link de reservar pádel. Un lead de ₡200k se perdía
+    // como si fuera una reserva de cancha de ₡15k.
+    //
+    // Mientras dura el flujo, userState queda en FIESTA_FLUJO (está en
+    // strictStates), así que ni el shortcut de reservas ni el fallback de
+    // IA se meten a contestar las respuestas del cliente.
+    //
+    // Si el handler devuelve handled:false (error interno o no es fiesta),
+    // todo sigue igual que antes y F1.9 más abajo hace de red.
+    // ================================
+    {
+      const enFiesta = userState[from] === "FIESTA_FLUJO";
+      if (enFiesta || !hasActiveUserFlow(userState[from], profile)) {
+        try {
+          const __fiesta = await require("./services/fiestasHandler").handle({
+            from, rawText, profile, continuar: enFiesta, esBoton, redis,
+            sendWatiMessage, notifyHandoffAlert, logEvent,
+          });
+          if (__fiesta?.salir) {
+            userState[from] = "MENU_PRINCIPAL";       // se sale: sigue el flujo normal
+          } else if (__fiesta?.handled) {
+            userState[from] = __fiesta.dentro ? "FIESTA_FLUJO" : "MENU_PRINCIPAL";
+            return res.sendStatus(200);
+          }
+        } catch (e) {
+          console.log("⚠️ fiestasHandler error:", e?.message);
+        }
+      }
+    }
+
+    // ================================
     // SHORTCUT RESERVAS — mandar link de form
     // (Reemplaza el flujo conversacional viejo de reservas que no funcionaba.
     //  Solo intercepta si NO hay flujo activo crítico — para no romper carrito,
@@ -1899,7 +1941,7 @@ async function whatsappHandler(req, res) {
 
         await sendWatiMessage(from,
           `🎈 ¡Qué bueno, ${firstName}! Mirá los paquetes de fiestas acá:\n\n` +
-          `👉 https://drive.google.com/open?id=11xvFT0-drZTnJl_ixFE5FOy8PS_ewnwV\n\n` +
+          `👉 https://fiestas.grupocotorreo.com\n\n` +
           `Para coordinar tu evento (fecha, precio, detalles), escribí *asesor* y te ponemos en contacto. 🎉`
         );
         logEvent("event_info_sent", { from, kind: "evento_fiesta" });
@@ -2018,7 +2060,7 @@ async function whatsappHandler(req, res) {
           });
         }
 
-        const aiReply = await getSimpleAIReply(text, {
+        let aiReply = await getSimpleAIReply(text, {
           diaSemana,
           plazaAbierto: schedule.isOpen,
           promoDelDia: getPromoDelDia(),
@@ -2028,6 +2070,36 @@ async function whatsappHandler(req, res) {
           sushis2x1: SUSHIS_2X1,
           platillosConfirmados: platillos().contextoPlatillos(platosDelMensaje)
         });
+
+        // ================================
+        // FIESTAS POR IA — la red para "las mil formas"
+        //
+        // Las keywords del bloque de fiestas cubren lo común, pero nadie
+        // puede listar todas las maneras de pedir una fiesta. Para eso ya
+        // está la IA: si clasificó el mensaje como fiesta, suelta el
+        // marcador [[FIESTA]] y su respuesta NO sale — arrancamos la
+        // cotización igual que si hubiera caído por keyword.
+        // ================================
+        if (typeof aiReply === "string" && aiReply.includes("[[FIESTA]]")) {
+          try {
+            const __fiestaIA = await require("./services/fiestasHandler").handle({
+              from, rawText, profile, continuar: false, forzar: true, redis,
+              sendWatiMessage, notifyHandoffAlert, logEvent,
+            });
+            if (__fiestaIA?.handled) {
+              userState[from] = __fiestaIA.dentro ? "FIESTA_FLUJO" : "MENU_PRINCIPAL";
+              await resetFallbackStreak(from);
+              logEvent("fiesta_por_ia", { from, text_preview: (text || "").slice(0, 80) });
+              return res.sendStatus(200);
+            }
+          } catch (e) {
+            console.log("⚠️ fiesta via IA:", e?.message);
+          }
+          // Si el handler no pudo, el marcador JAMÁS debe salirle al cliente.
+          aiReply = "🎈 ¡Con gusto le armamos la fiesta! Mirá los paquetes y precios acá:\n\n" +
+            "👉 https://fiestas.grupocotorreo.com\n\n" +
+            "Si preferís que te atienda una persona, escribí *asesor*.";
+        }
 
         // Fallback escalado: si la IA soltó la frase de escape, contar. A la
         // segunda seguida no la repetimos — pasamos el chat a un humano.
@@ -2216,8 +2288,8 @@ async function whatsappHandler(req, res) {
         await sendWatiMessage(
           from,
           "🎈 Paquetes para fiestas Plaza Cotorreo\n\n" +
-          "Mira la imagen con los paquetes aquí:\n" +
-          "https://drive.google.com/open?id=11xvFT0-drZTnJl_ixFE5FOy8PS_ewnwV\n\n" +
+          "Paquetes, precios y qué incluye cada uno:\n" +
+          "https://fiestas.grupocotorreo.com\n\n" +
           "Celebra con nosotros. Pregunta por opciones y precios. 🎉\n\n" +
           "9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal"
         );
@@ -2925,8 +2997,8 @@ if (userState[from] === "RESERVA_DURACION") {
       if (text === "5") {
         userState[from] = "ALPADEL_PAQUETES";
         await sendWatiMessage(from, "🎈 Paquetes para fiestas Alpadel\n\n" +
-          "Mira la imagen con los paquetes aquí:\n" +
-          "https://drive.google.com/open?id=11xvFT0-drZTnJl_ixFE5FOy8PS_ewnwV\n\n" +
+          "Paquetes, precios y qué incluye cada uno:\n" +
+          "https://fiestas.grupocotorreo.com\n\n" +
           "Arma tu evento con cancha incluida. Consúltanos. 🎉\n\n" +
           "9️⃣ Volver al menú anterior\n0️⃣ Volver al menú principal");
         return res.sendStatus(200);
@@ -2966,6 +3038,24 @@ if (userState[from] === "RESERVA_DURACION") {
     // ================================
     // FALLBACK ABSOLUTO
     // ================================
+    // Red de seguridad: FIESTA_FLUJO es un estado sin bloque propio en la
+    // máquina de estados. Si un mensaje llegó hasta acá estando en ese
+    // estado (una nota de voz, un sticker, o un error del handler), el
+    // cliente quedaría pegado. Lo soltamos antes de mandarlo al menú.
+    if (userState[from] === "FIESTA_FLUJO") {
+      logEvent("fiesta_flujo_rescatado", {
+        from,
+        text_preview: (rawText || "").slice(0, 60)
+      });
+      // El borrador vive en Redis, no en userState: si no lo borramos acá, el
+      // próximo mensaje del cliente lo vuelve a meter al flujo de fiestas
+      // aunque acabe de ver el menú principal.
+      try {
+        await require("./services/fiestasHandler").soltar(redis, from);
+      } catch (e) {
+        console.log("⚠️ fiestas: soltar", e?.message);
+      }
+    }
     userState[from] = "MENU_PRINCIPAL";
     let messageText = getMenuPrincipalText(profile.name);
 
