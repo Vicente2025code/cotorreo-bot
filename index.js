@@ -14,6 +14,7 @@ const bodyParser = require("body-parser");
 const fetch = global.fetch || require("node-fetch");
 const { getSimpleAIReply } = require("./services/aiFallbackService");
 const { crearBuscador } = require("./services/catalogoBuscador");
+const { detectarCanal, esWhatsApp, etiquetaCanal } = require("./services/canalDetector");
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -1014,6 +1015,49 @@ function getCheckoutText(from, cart) {
 // ================================
 // ENVIO MENSAJES WATI
 // ================================
+// ================================
+// ALERTAS AL STAFF + VIGILANTE DE ESPERA
+// ================================
+// Declarados ACÁ ARRIBA, antes de sendWatiMessage, a propósito: sendWatiMessage
+// usa `vigilante`, y si el const viviera más abajo quedaría una zona muerta
+// (TDZ) que reventaría con ReferenceError el día que algo mande un mensaje
+// durante el arranque del módulo, en vez de fallar suave.
+//
+// Default de destinatarios: Liliana (admin operativa, WhatsApp activo, validado
+// en WATI por uso previo en n8n). Se agregan más por HANDOFF_ALERT_NUMBERS
+// (CSV) sin redeploy. El 50663038030 (operativo Cotorreo) falló con
+// "validWhatsAppNumber: false": sirve para llamadas y SINPE, no tiene WhatsApp.
+const HANDOFF_ALERT_NUMBERS = (process.env.HANDOFF_ALERT_NUMBERS || "50660127557")
+  .split(",")
+  .map(n => n.trim())
+  .filter(Boolean);
+
+if (!HANDOFF_ALERT_NUMBERS.length) {
+  console.log("🚨 HANDOFF_ALERT_NUMBERS quedó VACÍO: ninguna alerta al staff va a llegar.");
+}
+
+// Vigilante de espera — ver services/vigilanteEspera.js.
+// Nace del caso Luisa (6-nov-2026): pidió un paquete para 25 niños, un humano
+// le preguntó dos cosas, ella contestó en un minuto y nadie volvió en 66 horas.
+// A las 24 h WhatsApp cerró la ventana y hubo que mandarle plantilla para poder
+// escribirle. ~₡87.500.
+//
+// No le consulta NADA a WATI: el bot ya recibe los mensajes entrantes y los
+// sessionMessageSent, así que el reloj se lleva solo en Redis.
+const {
+  crearVigilante,
+  textoAlerta: textoAlertaEspera,
+  textoAlertaCanal,
+  textoParaVigilante,
+} = require("./services/vigilanteEspera");
+
+const vigilante = crearVigilante({
+  redis,
+  // El staff no se alerta a sí mismo: las alertas llegan a estos números.
+  excluidos: HANDOFF_ALERT_NUMBERS,
+  registrar: (ev, payload) => logEvent(ev, payload),
+});
+
 async function sendWatiMessage(to, message) {
   // Modo demo: capturar en buffer en lugar de mandar a WATI
   if (isDemoSession(to)) {
@@ -1083,6 +1127,21 @@ const payload = new URLSearchParams({
         await redis.expire(`bot_sent_texts:${whatsappNumber}`, 60);
       }
     } catch (_) {}
+
+    // Apagar el reloj del vigilante — pero solo si el cliente quedó ATENDIDO.
+    //
+    // Solo si WATI aceptó el envío: si falló, el cliente sigue esperando.
+    //
+    // Y solo si NO hay handoff activo. Esa condición es la clave: cuando el
+    // cliente escribe "asesor", el bot le contesta "un asesor te atenderá en un
+    // momento" y activa el handoff. Ese mensaje NO lo atendió — un humano
+    // todavía le debe respuesta. Si se apagara el reloj ahí, el escenario que
+    // originó todo esto ("pidió asesor y nadie vino") quedaría sin cubrir: ni
+    // aviso a los 20 min ni urgente a las 20 h. Lo mismo vale para el menú, el
+    // pedido del nombre y el fallback: la casa escribió, pero no atendió.
+    if (response.ok && !isHandoffActive(to)) {
+      vigilante.limpiarEspera(to, Date.now()).catch(() => {});
+    }
   } catch (err) {
     console.log("❌ Error enviando a WATI:", err?.message || err);
   }
@@ -1172,7 +1231,7 @@ async function sendWatiTemplate(to, templateName, paramValues = []) {
       templateName: String(templateName || ""),
       text: `📄 *Plantilla:* ${templateName}\n${paramValues.map((v, i) => `  ${i + 1}. ${v}`).join("\n")}`
     });
-    return;
+    return true;
   }
 
   const token = process.env.WATI_TOKEN;
@@ -1199,6 +1258,12 @@ async function sendWatiTemplate(to, templateName, paramValues = []) {
     parameters
   };
 
+  // Timeout duro: sin esto, si WATI se queda colgado el fetch espera para
+  // siempre y la corrida del vigilante nunca termina (y con el candado, ninguna
+  // corrida posterior arranca). 15 s es de sobra para esta API.
+  const corta = new AbortController();
+  const reloj = setTimeout(() => corta.abort(), 15000);
+
   try {
     const response = await fetch(endpoint, {
       method: "POST",
@@ -1206,13 +1271,34 @@ async function sendWatiTemplate(to, templateName, paramValues = []) {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: corta.signal
     });
     const text = await response.text();
     console.log(`📨 WATI template "${templateName}" status:`, response.status);
-    if (response.status >= 400) console.log("📨 WATI template error:", text);
+    if (response.status >= 400) {
+      console.log("📨 WATI template error:", text);
+      return false;
+    }
+
+    // WATI devuelve 200 con result:false cuando rechaza el envío (número sin
+    // WhatsApp, plantilla mal, fuera de ventana). Un 200 no alcanza: hay que
+    // mirar el cuerpo, o se reporta como enviada una alerta que nunca llegó.
+    try {
+      const data = JSON.parse(text);
+      if (data && data.result === false) {
+        console.log("📨 WATI template rechazado:", text.slice(0, 300));
+        return false;
+      }
+    } catch (_) { /* respuesta no-JSON con 200: se da por buena */ }
+
+    return true;
   } catch (err) {
-    console.log("❌ Error enviando template:", err?.message || err);
+    const motivo = err?.name === "AbortError" ? "timeout de 15 s" : (err?.message || err);
+    console.log("❌ Error enviando template:", motivo);
+    return false;
+  } finally {
+    clearTimeout(reloj);
   }
 }
 
@@ -1287,21 +1373,102 @@ async function sendWatiButtonsMessage(to, { header, body, footer, buttons }) {
 }
 
 // ================================
-// ALERT DE HANDOFF AL STAFF
-// Llamado cada vez que se activa handoff humano (pedido, evento, asesor).
-// Usa el template "staff_alerta" ya aprobado en WATI.
-// Lista de números configurable vía env var HANDOFF_ALERT_NUMBERS (CSV)
-// con fallback al número operativo de Cotorreo.
+// ENVÍO DE ALERTAS AL STAFF
+// Usa el template "staff_alerta", ya aprobado en WATI.
+// (HANDOFF_ALERT_NUMBERS y el vigilante se declaran arriba, antes de
+//  sendWatiMessage — ver la nota de TDZ ahí.)
 // ================================
-// Default: Liliana (admin operativa, WhatsApp activo, ya validado en WATI por uso
-// previo en workflows de n8n). Cambiar via env var HANDOFF_ALERT_NUMBERS (CSV)
-// para agregar más destinatarios sin redeploy.
-// El número 50663038030 (operativo Cotorreo) falló con "validWhatsAppNumber: false"
-// — ese número se usa para llamadas/SINPE pero no tiene WhatsApp activo.
-const HANDOFF_ALERT_NUMBERS = (process.env.HANDOFF_ALERT_NUMBERS || "50660127557")
-  .split(",")
-  .map(n => n.trim())
-  .filter(Boolean);
+
+// WATI aguanta ~1,5 s entre llamadas antes de tirar 429.
+const WATI_PAUSA_MS = 1500;
+const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Manda una alerta a todos los números del staff, en serie y espaciadas.
+// Devuelve true solo si al menos un destinatario la recibió de verdad.
+async function mandarAlertaStaff(tipo, detalle) {
+  let algunaOk = false;
+  for (let i = 0; i < HANDOFF_ALERT_NUMBERS.length; i++) {
+    if (i > 0) await dormir(WATI_PAUSA_MS);
+    const ok = await sendWatiTemplate(HANDOFF_ALERT_NUMBERS[i], "staff_alerta", [tipo, detalle]);
+    if (ok) algunaOk = true;
+  }
+  return algunaOk;
+}
+
+// Manda las alertas que toquen. La llama el cron interno y el endpoint
+// /cron/vigilante.
+//
+// Si WATI rechaza el envío (429, 400, red caída), se DESMARCA el aviso para
+// que el próximo tick lo reintente. Sin esto, una alerta rechazada quedaba
+// marcada como enviada por 26 h: Lili nunca la recibía y los logs decían que sí.
+async function enviarAlertasEspera() {
+  let alertas = [];
+  try {
+    alertas = await vigilante.revisarEsperas();
+  } catch (e) {
+    console.log("⚠️ vigilante revisar:", e?.message);
+    return { enviadas: 0, error: e?.message };
+  }
+  if (!alertas.length) return { enviadas: 0 };
+
+  let enviadas = 0;
+  const fallidas = [];
+  for (let i = 0; i < alertas.length; i++) {
+    const a = alertas[i];
+    if (i > 0) await dormir(WATI_PAUSA_MS);
+    const { tipo, detalle } = textoAlertaEspera(a);
+    const ok = await mandarAlertaStaff(tipo, detalle);
+    if (ok) {
+      enviadas++;
+      logEvent("espera_alerta_enviada", {
+        from: a.telefono, nivel: a.nivel, minutos: a.minutos, horas: a.horas,
+      });
+    } else {
+      fallidas.push(a.nivel);
+      await vigilante.desmarcarAviso(a.telefono, a.nivel);
+      logEvent("espera_alerta_fallida", { from: a.telefono, nivel: a.nivel });
+    }
+  }
+  return {
+    enviadas,
+    niveles: alertas.map((a) => a.nivel),
+    fallidas: fallidas.length || undefined,
+  };
+}
+
+// Aviso de canal que el bot no puede responder (Instagram / Messenger).
+// Uno por contacto por día: si alguien insiste por Instagram no hay que
+// bombardear a Lili con la misma alerta.
+//
+// El día se calcula en hora de Costa Rica, no UTC: con UTC el contador cambiaba
+// a las 6 de la tarde y dos mensajes a las 17:59 y 18:01 generaban dos alertas.
+async function avisarCanalNoSoportado({ canal, remitente, texto }) {
+  const etiqueta = etiquetaCanal(canal);
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Costa_Rica" });
+  const clave = `canal_avisado:${String(remitente).replace(/\D/g, "")}:${hoy}`;
+  try {
+    const primera = await redis.set(clave, "1", { nx: true, ex: 86400 });
+    if (!primera) return false;
+  } catch (_) {
+    // Si Redis falla preferimos avisar (puede repetirse) antes que callar.
+  }
+  const { tipo, detalle } = textoAlertaCanal({
+    canalEtiqueta: etiqueta,
+    remitente: String(remitente),
+    texto,
+  });
+  const ok = await mandarAlertaStaff(tipo, detalle);
+  if (!ok) {
+    // Esta alerta es el ÚNICO salvavidas del cliente que escribió por un canal
+    // que el bot no puede contestar. Si no salió, se borra la marca para que el
+    // próximo mensaje de esa persona lo vuelva a intentar.
+    try { await redis.del(clave); } catch (_) {}
+    logEvent("canal_no_soportado_alerta_fallida", { canal, from: String(remitente) });
+    return false;
+  }
+  logEvent("canal_no_soportado_avisado", { canal, from: String(remitente) });
+  return true;
+}
 
 async function notifyHandoffAlert({ reason, clientPhone, clientName, originalText }) {
   // Calcular hora "atender antes de" en hora Costa Rica. Usa el SLA del staff,
@@ -1522,12 +1689,59 @@ async function whatsappHandler(req, res) {
       if (!isNew) return res.sendStatus(200);
     }
 
+    const isClientMessage = !eventType || eventType === "message" || eventType === "message_received";
+
+    // ¿Lo mandó la casa? WATI marca lo saliente con operatorEmail y/o con el
+    // eventType sessionMessageSent.
+    const esSaliente = eventType === "sessionMessageSent" ||
+                       !!req.body?.operatorEmail ||
+                       req.body?.owner === true;
+
+    // ════════════════════════════════════════════════════════════════════
+    // SEGURO DE CANAL — Instagram / Facebook Messenger
+    // ════════════════════════════════════════════════════════════════════
+    // Desde el 10-nov-2026 la cuenta de WATI tiene conectados Instagram y
+    // Messenger. Pero la API REST de WATI NO puede responder por ahí (su doc:
+    // "WhatsApp and Instagram today. TikTok and Messenger are coming soon" /
+    // "Not in the API yet"), y sendWatiMessage fuerza
+    // channelPhoneNumber:"50683436583" con to.replace(/\D/g,"").
+    //
+    // Sin este guard, un DM de Instagram haría que el bot intente mandar un
+    // WhatsApp a un ID de 17 dígitos: WATI lo rechaza y el cliente NO RECIBE
+    // NADA. Falla callado, que es el peor modo de falla. Mejor avisarle a una
+    // persona y que conteste en la bandeja.
+    //
+    // VA ANTES DEL FILTRO DE ANTIGÜEDAD (F1.6), a propósito: este guard no le
+    // responde nada al cliente, solo le avisa a una persona, así que que el
+    // mensaje tenga más de 2 minutos no lo invalida. Si fuera después, tras un
+    // redeploy de Render —cuando WATI re-encola los webhooks acumulados— todos
+    // los DM de Instagram de esos minutos se descartarían y nadie se enteraría:
+    // el mismo modo de falla silencioso que este guard existe para eliminar.
+    //
+    // Tampoco se exige isClientMessage: WATI podría entregar los mensajes de IG
+    // con un eventType propio ("image", "instagram", lo que sea) y entonces el
+    // guard no aplicaría y el mensaje se perdería en el 200 del final.
+    if (!esSaliente) {
+      const canal = detectarCanal(req.body);
+      if (!esWhatsApp(canal)) {
+        logEvent("canal_no_soportado", {
+          from,
+          canal,
+          event_type: eventType || null,
+          text_preview: (rawText || "").slice(0, 60),
+        });
+        avisarCanalNoSoportado({ canal, remitente: from, texto: rawText }).catch((e) =>
+          console.log("⚠️ aviso canal:", e?.message)
+        );
+        return res.sendStatus(200);
+      }
+    }
+
     // F1.6 — Ignorar mensajes "viejos" que WATI re-encoló post-redeploy o tras
     // downtime. Si el cliente escribió hace >2 minutos, ya no está esperando
     // respuesta y mandarle algo ahora genera mensajes "fantasma" confusos.
     // Solo aplica a mensajes entrantes del cliente (no a sessionMessageSent
     // ni eventos del sistema).
-    const isClientMessage = !eventType || eventType === "message" || eventType === "message_received";
     if (isClientMessage && req.body?.timestamp) {
       const msgTimestampSec = parseInt(req.body.timestamp, 10);
       if (msgTimestampSec > 0) {
@@ -1561,6 +1775,29 @@ async function whatsappHandler(req, res) {
         text_preview: (rawText || "").slice(0, 60),
         has_name: !!profile.name
       });
+
+    }
+
+    // ── Vigilante de espera: arrancar el reloj ──
+    // Si ya había uno corriendo no se reinicia: la espera se cuenta desde el
+    // PRIMER mensaje sin contestar (Luisa escribió 22:55 y 22:56 — el reloj va
+    // desde 22:55). Se apaga cuando el bot responde sin handoff, o cuando un
+    // humano escribe.
+    //
+    // Incluye los mensajes CON ADJUNTO y sin texto. Eso no es un detalle: el
+    // caso Karol era un comprobante de SINPE, y lo normal es que el cliente
+    // mande la CAPTURA del SINPE o una nota de voz. Con rawText vacío el
+    // vigilante los ignoraba por completo — justo los mensajes de más valor.
+    if (!esSaliente && !isDemoSession(from)) {
+      const textoVigilante = textoParaVigilante(req.body, eventType, rawText);
+      if (textoVigilante) {
+        vigilante
+          .marcarEspera(from, {
+            nombre: profile.name || senderName || "",
+            texto: textoVigilante,
+          })
+          .catch(() => {});
+      }
     }
 
     // Eventos de asignación/cierre (si tu WATI los manda así)
@@ -1652,6 +1889,19 @@ async function whatsappHandler(req, res) {
     }
 
     if (eventType === "sessionMessageSent") {
+      // Los números del staff nunca llevan handoff ni reloj: lo que les llega
+      // son nuestras propias alertas.
+      //
+      // Hace falta un atajo explícito porque el detector de "eco del bot" de
+      // más abajo compara el texto contra el set bot_sent_texts, y una
+      // PLANTILLA no se puede registrar ahí: WATI manda el texto ya renderizado
+      // (encabezado fijo + parámetros), que no coincide con nada que el bot
+      // haya guardado. Sin este atajo, cada alerta al staff activaba un handoff
+      // falso sobre el contacto de Lili y escribía estado en Redis.
+      const esNumeroStaff = from &&
+        HANDOFF_ALERT_NUMBERS.includes(String(from).replace(/\D/g, ""));
+      if (esNumeroStaff) return res.sendStatus(200);
+
       // ═══ MUNDIAL 2026: Activar modo Mundial para destinatario si fue template Mundial ═══
       // WATI no manda templateName en sessionMessageSent, solo el text.
       // Detectamos por contenido: si el texto contiene strings unicos del template
@@ -1722,6 +1972,18 @@ async function whatsappHandler(req, res) {
                       !opEmail.includes("api-token-user") &&
                       !esEcoDelBot;
       if (isHuman && from) {
+        // Un humano SÍ atendió: acá se apaga el reloj del vigilante. Es el
+        // único camino que lo apaga cuando hay handoff activo.
+        // Se pasa la hora del mensaje saliente para no borrar el reloj de una
+        // pregunta que el cliente hizo DESPUÉS (WATI reintenta webhooks y no
+        // garantiza el orden).
+        if (!isDemoSession(from)) {
+          const tsSaliente = Number(req.body?.timestamp) > 0
+            ? Number(req.body.timestamp) * 1000
+            : Date.now();
+          vigilante.limpiarEspera(from, tsSaliente).catch(() => {});
+        }
+
         const handoff = getUserHandoff(from);
         handoff.active = true;
         handoff.until = Date.now() + HANDOFF_DURATION_MS;
@@ -3455,6 +3717,76 @@ try {
   console.log("[Alpadel] CRON registrado: sabado 6 jun 12:00 PM CR (one-shot)");
 } catch (e) {
   console.log("[Alpadel] node-cron no disponible:", e.message);
+}
+
+// ================================
+// VIGILANTE DE ESPERA — CRON cada 5 min + endpoint manual
+// ================================
+// El vigilante no le consulta nada a WATI, así que correrlo seguido no cuesta
+// llamadas de API. Cada corrida solo lee Redis; gasta únicamente cuando hay una
+// alerta de verdad que mandar.
+// Token propio, sin default insegura. Si no está configurado el endpoint queda
+// deshabilitado — el cron interno sigue corriendo igual. Antes reutilizaba el
+// token del Mundial, que además está hardcodeado en el repo.
+app.post("/cron/vigilante", async (req, res) => {
+  const expected = process.env.VIGILANTE_CRON_TOKEN;
+  if (!expected) return res.status(503).json({ error: "endpoint deshabilitado" });
+  const token = req.query.token || req.headers["x-cron-token"];
+  if (token !== expected) return res.status(401).json({ error: "token invalido" });
+  try {
+    res.json(await enviarAlertasEspera());
+  } catch (e) {
+    // Sin filtrar el mensaje de error al cliente.
+    console.error("[Vigilante] endpoint error:", e?.message);
+    res.status(500).json({ error: "fallo interno" });
+  }
+});
+
+const VIGILANTE_CADA_MS = 5 * 60 * 1000;
+
+// Candado de una sola corrida. Las alertas duplicadas ya las impide el SET NX
+// de la clave de avisado, así que esto no es por duplicados: es para que no se
+// apilen corridas si WATI se queda colgado. Cada alerta ahora espera 1,5 s
+// entre envíos, así que una corrida con el tope de 10 puede tardar ~30 s.
+let vigilanteCorriendo = false;
+
+async function tickVigilante(origen) {
+  if (vigilanteCorriendo) {
+    console.log(`[Vigilante] ${origen} — ya hay una corrida en curso, se salta`);
+    return;
+  }
+  vigilanteCorriendo = true;
+  try {
+    const r = await enviarAlertasEspera();
+    if (r.enviadas || r.fallidas) {
+      console.log(`[Vigilante] ${origen} —`, JSON.stringify(r));
+    }
+  } catch (e) {
+    console.error(`[Vigilante] ${origen} error:`, e?.message);
+  } finally {
+    vigilanteCorriendo = false;
+  }
+}
+
+// node-cron primero; si no está disponible, setInterval.
+// El fallback NO es decorativo: node-cron está en package.json pero no estaba
+// instalado en el entorno local, y si faltara en Render el vigilante no correría
+// nunca — justo el modo de falla silencioso que este módulo existe para evitar.
+let vigilanteProgramado = false;
+try {
+  const cron = require("node-cron");
+  cron.schedule("*/5 * * * *", () => tickVigilante("cron"), {
+    timezone: "America/Costa_Rica",
+  });
+  vigilanteProgramado = true;
+  console.log("[Vigilante] programado con node-cron: cada 5 min");
+} catch (e) {
+  console.log("[Vigilante] node-cron no disponible:", e.message);
+}
+
+if (!vigilanteProgramado) {
+  setInterval(() => tickVigilante("interval"), VIGILANTE_CADA_MS).unref?.();
+  console.log("[Vigilante] programado con setInterval: cada 5 min");
 }
 
 // ================================
