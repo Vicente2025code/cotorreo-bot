@@ -1800,6 +1800,47 @@ async function whatsappHandler(req, res) {
       }
     }
 
+    // ════════════════════════════════════════════════════════════════════
+    // TICKET ASIGNADO EN WATI → EL BOT SE CALLA
+    // ════════════════════════════════════════════════════════════════════
+    // El handoff duraba 30 min desde el último mensaje del humano
+    // (HANDOFF_DURATION_MIN) y se vencía solo. Eso reventó con Alejandra el
+    // 10-nov-2026: a las 19:09 un humano le dijo "cocina indica unos 40 min".
+    // El handoff venció a las 19:39 — ANTES de que la comida estuviera lista —
+    // y cuando ella preguntó "¿maso menos cuánto falta?" a las 19:49 contestó
+    // el bot, y además le mandó la promo del martes sushiero TRES veces
+    // mientras esperaba su pedido. El humano volvió a las 19:55.
+    //
+    // O sea: cada vez que un humano promete más de 30 minutos, el bot tiene
+    // garantizado meterse. Y el reloj no es la verdad de quién atiende.
+    //
+    // La verdad la tiene WATI: `assignedId` viene en el webhook del mensaje
+    // ENTRANTE y dice si el ticket está asignado a un agente. Verificado en la
+    // conversación de Alejandra: antes de que el humano entrara (18:46) los
+    // mensajes del cliente llegaban SIN assignedId; después, todos con él.
+    //
+    // Se refresca la ventana en vez de volverla eterna: si en WATI cierran o
+    // desasignan el ticket, el handoff se vence solo 30 min después del último
+    // mensaje. Así no queda un cliente al que el bot nunca le vuelva a hablar.
+    const ticketAsignado = !esSaliente && isClientMessage && !isDemoSession(from) &&
+      Boolean(req.body?.assignedId);
+
+    if (ticketAsignado && from) {
+      const handoff = getUserHandoff(from);
+      const yaEstaba = handoff.active;
+      handoff.active = true;
+      handoff.until = Date.now() + HANDOFF_DURATION_MS;
+      if (!yaEstaba) {
+        handoff.notified = true; // no re-alertar: el humano YA está adentro
+        logEvent("handoff_por_ticket_asignado", {
+          from,
+          operator: req.body?.operatorName || null,
+          text_preview: (rawText || "").slice(0, 60),
+        });
+      }
+      saveHandoffState();
+    }
+
     // Eventos de asignación/cierre (si tu WATI los manda así)
     if (eventType === "chat_assigned") {
       handoff.active = true;
