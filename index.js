@@ -15,6 +15,7 @@ const fetch = global.fetch || require("node-fetch");
 const { getSimpleAIReply } = require("./services/aiFallbackService");
 const { crearBuscador } = require("./services/catalogoBuscador");
 const { detectarCanal, esWhatsApp, etiquetaCanal } = require("./services/canalDetector");
+const { preguntaPorRollos2x1, requiereHumano } = require("./services/intencionMensaje");
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -1691,11 +1692,22 @@ async function whatsappHandler(req, res) {
 
     const isClientMessage = !eventType || eventType === "message" || eventType === "message_received";
 
-    // ¿Lo mandó la casa? WATI marca lo saliente con operatorEmail y/o con el
-    // eventType sessionMessageSent.
-    const esSaliente = eventType === "sessionMessageSent" ||
-                       !!req.body?.operatorEmail ||
-                       req.body?.owner === true;
+    // ¿Lo mandó la casa?
+    //
+    // `owner` es la bandera real: true = saliente. Y NO se puede usar
+    // operatorEmail para esto, aunque parezca: WATI lo manda TAMBIÉN en los
+    // mensajes entrantes, porque es el correo del agente ASIGNADO al ticket,
+    // no de quien escribió.
+    //
+    // La primera versión lo incluía y era un bug grave: sobre los 43 webhooks
+    // reales capturados de producción, 27 de 28 mensajes ENTRANTES traían
+    // operatorEmail, así que quedaban marcados como salientes. Consecuencia: el
+    // vigilante de espera no arrancaba reloj en ninguna conversación que
+    // hubiera pasado por un agente — exactamente los casos de Luisa y Karol
+    // que lo motivaron. La función nacía muerta y las pruebas no lo veían,
+    // porque los payloads de prueba los había escrito a mano sin ese campo.
+    // Lo cazó el arnés de regresión (tests/replay.js) en su primera corrida.
+    const esSaliente = eventType === "sessionMessageSent" || req.body?.owner === true;
 
     // ════════════════════════════════════════════════════════════════════
     // SEGURO DE CANAL — Instagram / Facebook Messenger
@@ -2263,29 +2275,56 @@ async function whatsappHandler(req, res) {
     // igual quiere saber para volver el martes.
     // ================================
     {
-      const nrm = (text || "")
-        .trim()
-        .toLowerCase()
-        .replace(/[¡!¿?]/g, "")
-        .normalize("NFD")
-        .replace(/[̀-ͯ]/g, "");
+      // ════════════════════════════════════════════════════════════════
+      // ESTADO DEL PEDIDO Y QUEJAS → SIEMPRE A UNA PERSONA
+      // ════════════════════════════════════════════════════════════════
+      // El bot NO puede saber si la comida está lista: no ve la cocina ni el
+      // express. Y contestar una queja con publicidad es peor que no contestar.
+      //
+      // Va ANTES del interceptor de sushi a propósito. "¿Ya está lista mi orden
+      // de sushi?" trae palabra de sushi, así que si el interceptor corriera
+      // primero se quedaría con el mensaje y mandaría la lista de precios —
+      // que es exactamente lo que pasaba. El orden es parte del arreglo.
+      //
+      // Caso que lo motivó: Alejandra, 10-nov-2026 19:49. Un humano le había
+      // dicho "unos 40min", el handoff venció a los 30, ella preguntó "¿maso
+      // menos cuánto falta?" y el bot le contestó con la promo del martes,
+      // tres veces.
+      const motivoHumano = requiereHumano(text);
+      if (motivoHumano && !hasActiveUserFlow(userState[from], profile)) {
+        const handoff = getUserHandoff(from);
+        handoff.active = true;
+        handoff.until = Date.now() + HANDOFF_DURATION_MS;
+        handoff.notified = true;
+        saveHandoffState();
 
-      // Pregunta explícita por cuáles aplican, con o sin la palabra "sushi".
-      const preguntaCuales =
-        /(cuales|cual|que|en que|aplica|aplican|incluye|incluyen|entran|entra|sirve|valido|validos)/.test(nrm) &&
-        /(sushi|sushis|roll|rolls|rollo|rollos|2x1|2 x 1|dos por uno)/.test(nrm);
+        await sendWatiMessage(from, FALLBACK_ESCALADO_MESSAGE);
 
-      // "menu de sushi", "menu sushi", "que sushis tienen"
-      const pideMenuSushi =
-        /(menu|carta|lista|opciones|tienen|hay)/.test(nrm) &&
-        /(sushi|sushis|roll|rolls|rollo|rollos)/.test(nrm);
+        notifyHandoffAlert({
+          reason: motivoHumano === "queja"
+            ? "😟 Queja o reclamo"
+            : "🍽️ Pregunta por su pedido",
+          clientPhone: from,
+          clientName: profile.name,
+          originalText: rawText
+        }).catch(e => console.log("alert error:", e?.message));
 
-      // "2x1 sushi" a secas, sin pregunta armada
-      const promoSushiDirecta =
-        /(2x1|2 x 1|dos por uno|promo)/.test(nrm) &&
-        /(sushi|sushis|roll|rolls|rollo|rollos)/.test(nrm);
+        logEvent("ruteado_a_humano", {
+          from,
+          motivo: motivoHumano,
+          text_preview: (text || "").slice(0, 80)
+        });
+        return res.sendStatus(200);
+      }
 
-      if ((preguntaCuales || pideMenuSushi || promoSushiDirecta) &&
+      // La decisión vive en services/intencionMensaje.js, con tabla de pruebas.
+      // Antes estaba acá en línea con búsquedas de subcadena SIN límite de
+      // palabra, y `que` entre ellas: o sea que las letras q-u-e, que viven
+      // dentro de "porque" y "quería", bastaban para soltar la lista de
+      // precios. Medido el 10-nov-2026: 7 de 12 frases reales salían mal,
+      // incluida una QUEJA ("porque el sushi estaba frío") y una pregunta por
+      // el pedido ("¿ya está lista mi orden de sushi?").
+      if (preguntaPorRollos2x1(text) &&
           !hasActiveUserFlow(userState[from], profile)) {
         userState[from] = "MENU_PRINCIPAL";
 
