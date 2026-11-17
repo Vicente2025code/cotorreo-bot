@@ -170,7 +170,6 @@ PROMOS PLAZA COTORREO Y ALPADEL:
 - Desayuno + Pádel Domingo: ₡20.000 (8am-12md, 1h cancha dobles + 4 desayunos + palas)
 - Desayuno + Pádel L-V: ₡20.000 (8am-12md, 1h cancha dobles + 4 desayunos + palas)
 - Pádel + Bebidas L-V 4pm-10pm: dobles 4 bebidas / singles 2 bebidas (gaseosa, cerveza Nacional o Tropical)
-- Glow Pádel Viernes: ₡5.000 por persona (1.5h juego + 1 bebida + pala, requiere reserva)
 - Baldazo Nacional Viernes: ₡6.000 (6 cervezas Nacional)
 - Almuerzo Ejecutivo L-V 11:30am-2pm: ₡3.800
 - Cotorreo Rewards: ₡10.000 = 1 sello, 20 sellos = ₡15.000 crédito
