@@ -37,11 +37,29 @@ const TTL_S = 7 * 24 * 60 * 60;
 // tarde a pedir una mesa se encuentra contestando preguntas de fiesta.
 const EXPIRA_MS = 20 * 60 * 1000;
 const MINIMO = 10;                          // bajo 10 no hay paquete que aplique
-const MAXIMO = 30;                          // la capacidad real del lugar
+// La capacidad NO es una sola: depende de donde se sienta el grupo.
+//   - mesas junto a las canchas: 30
+//   - restaurante:              150, pero el Brindis se vende hasta 80
+// MAXIMO se queda como el tope de los paquetes de nino/cumpleanos (van en las
+// mesas de las canchas). Las fiestas de empresa llegan a MAX_EMPRESA por el
+// Brindis, que es justo el paquete que existe para la planilla completa.
+const MAXIMO = 30;
+const MAX_EMPRESA = 80;
 const TOPE_MEMORIA = 500;                   // respaldo en RAM: techo duro
 
-const P_EMPRESA = 9500;
-const P_TORNEO = 11500;
+// --- Precios de empresa, vigentes desde el 18-nov-2026.
+// OJO: son precios BASE. Encima van dos cosas que no se pueden olvidar sin
+// cotizar de menos:
+//   - IVA 13% (el 10% de servicio de mesero YA viene dentro de la base)
+//   - viernes y sabado, +3.000 por persona ANTES del IVA
+const IVA = 0.13;
+const RECARGO_FINDE = 3000;
+const PAQ_EMPRESA = {
+  brindis: { nombre: "Brindis",          base: 7900,  min: 10, max: MAX_EMPRESA },
+  cierre:  { nombre: "Cierre de Año",    base: 12900, min: 15, max: MAXIMO },
+  torneo:  { nombre: "Torneo de Cierre", base: 17900, min: 15, max: MAXIMO },
+};
+
 const P_ALEGRIA = { basico: 6500, canchas: 9500, completo: 12000 };
 const P_ADULTO = 5000;                      // almuerzo del adulto acompanante
 
@@ -65,7 +83,20 @@ const RE_SALIR_SUAVE = /^(salir|cancelar|volver|atras|atrás|nada|olvidalo|ya no
 const norm = (s) => String(s || "").trim().toLowerCase()
   .normalize("NFD").replace(/[̀-ͯ]/g, "");
 
-const colones = (n) => "₡" + String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+// Redondea antes de formatear: desde que hay IVA los totales traen decimales,
+// y sin el Math.round un 268350.0000001 salia con la basura pegada.
+const colones = (n) =>
+  "₡" + String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+// Viernes y sabado valen 3.000 mas por persona. Devuelve null si no sabemos la
+// fecha: en ese caso cotizamos entre semana y lo decimos, en vez de inventar.
+function esFinde(iso) {
+  if (!iso) return null;
+  const f = new Date(`${iso}T12:00:00Z`);
+  if (Number.isNaN(f.getTime())) return null;
+  const dia = f.getUTCDay();                 // 0 domingo … 5 viernes, 6 sabado
+  return dia === 5 || dia === 6;
+}
 
 const MESES = {
   enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7,
@@ -218,18 +249,67 @@ function cotizar(d, nombre) {
     `Ya le aviso a un compañero para confirmarle la disponibilidad. 🙌\n\n${LINK}`;
 
   if (d.tipo === "Empresa") {
+    const finde = esFinde(d.fecha);
+    const extra = finde ? RECARGO_FINDE : 0;
+    // El redondeo va UNA vez, al final: redondear el precio por persona y
+    // despues multiplicar da un total distinto al de la pagina.
+    const total = (p) => colones(q * (p.base + extra) * (1 + IVA));
+    // El encabezado muestra el precio que SE LE VA A COBRAR, no la base: si
+    // dice "7.900 por persona" y el total sale de 10.900, el que saque la
+    // cuenta cree que le estamos cobrando de mas.
+    const porPersona = (p) => colones(p.base + extra);
+    // Solo se muestran los paquetes donde el grupo CABE. Cotizar el Cierre de
+    // Año a un grupo de 50 es prometer una mesa que no existe.
+    const cabe = (p) => q >= p.min && q <= p.max;
+
+    const bloques = [];
+    if (cabe(PAQ_EMPRESA.brindis)) {
+      bloques.push(
+        `🥂 *Brindis* — ${porPersona(PAQ_EMPRESA.brindis)} por persona\n` +
+        "• Café, bocadillos y refrescos para todos\n" +
+        "• En el restaurante, todos sentados juntos y bajo techo\n" +
+        "• Billar y arcade incluidos\n" +
+        "• Sin plato fuerte ni cancha de pádel\n" +
+        `• Total con IVA: *${total(PAQ_EMPRESA.brindis)}*`);
+    }
+    if (cabe(PAQ_EMPRESA.cierre)) {
+      bloques.push(
+        `🍽️ *Cierre de Año* — ${porPersona(PAQ_EMPRESA.cierre)} por persona\n` +
+        "• Comida, refrescos y cancha de pádel\n" +
+        "• En las mesas junto a las canchas\n" +
+        "• Billar y arcade incluidos\n" +
+        `• Total con IVA: *${total(PAQ_EMPRESA.cierre)}*`);
+    }
+    if (cabe(PAQ_EMPRESA.torneo)) {
+      bloques.push(
+        `🏆 *Torneo de Cierre* — ${porPersona(PAQ_EMPRESA.torneo)} por persona\n` +
+        "• Todo lo del Cierre de Año y el cuadro de 8 parejas\n" +
+        "• Diploma y premio para la pareja campeona\n" +
+        `• Total con IVA: *${total(PAQ_EMPRESA.torneo)}*`);
+    }
+
+    // Decirle POR QUÉ le salieron unos y no otros: si no, pregunta por el que
+    // vio en la página y aquí no le apareció.
+    let nota = "";
+    if (q > MAXIMO) {
+      nota = `\n\nPara ${q} personas el único que les sirve es el Brindis: los ` +
+        `otros dos van en las mesas junto a las canchas, que reciben ${MAXIMO}.`;
+    } else if (q < PAQ_EMPRESA.cierre.min) {
+      nota = `\n\nDesde ${PAQ_EMPRESA.cierre.min} personas se abren también el ` +
+        "Cierre de Año y el Torneo, que traen comida y cancha.";
+    }
+
+    // La regla del fin de semana se dice SIEMPRE, tambien cuando cotizamos un
+    // jueves: si no, el cliente que despues mueve la fiesta al sabado espera
+    // el mismo precio, y esa conversacion ya se perdio.
+    const dia = finde
+      ? `\n\nEsa fecha cae viernes o sábado, así que los totales ya traen los ${colones(RECARGO_FINDE)} de recargo por persona.`
+      : `\n\nEsos totales son de lunes a jueves; viernes y sábado son ${colones(RECARGO_FINDE)} más por persona.`;
+
     return `¡Listo${nombre ? ", " + nombre : ""}! Para *${q} personas* el *${cuando}*:\n\n` +
-      `🍽️ *Paquete Empresa* — ${colones(P_EMPRESA)} por persona\n` +
-      "• Comida de adultos: chifrijo, chicharrón, cordon bleu, lomo jalapeño o quesabirrias\n" +
-      "• Refrescos ilimitados\n" +
-      "• 2 horas de cancha de pádel y futtenis\n" +
-      "• Billar, arcade y el área que escojan\n" +
-      `• Total: *${colones(q * P_EMPRESA)}*\n\n` +
-      `🏆 *Paquete Empresa Torneo* — ${colones(P_TORNEO)} por persona\n` +
-      "• Todo lo anterior y una hora más de cancha (3 en total)\n" +
-      "• Cuadro de torneo armado por nosotros\n" +
-      "• Diploma y premio para la pareja campeona: una noche en Hotel Nube o ₡15.000 en consumo\n" +
-      `• Total: *${colones(q * P_TORNEO)}*` + pie;
+      bloques.join("\n\n") + nota + dia +
+      "\n\nEl 10% de servicio ya va incluido en el precio por persona, y el IVA del 13% ya está sumado en los totales." +
+      pie;
   }
   // El paquete de Alegría es POR NIÑO; el adulto acompañante come aparte.
   // Si el cliente dio el desglose, cotizamos sobre los niños y sumamos los
@@ -268,8 +348,14 @@ async function anotarEnAirtable(d, from, nombre, estado = "Cotizado") {
     "Tipo de fiesta": d.tipo || "Por definir",
     Personas: d.personas || null,
     Area: d.area || "Por definir",
-    Paquete: d.grande ? "A la medida"
-      : (d.tipo === "Empresa" ? "Empresa 9500" : "Por definir"),
+    // "Paquete" es un singleSelect y sus opciones son las viejas
+    // (Empresa 9500 / Empresa Torneo 11500 / Alegria…). Escribir una opcion
+    // que no existe devuelve 422 y se pierde el campo.
+    // Ademas ya era incorrecto antes: al cotizar le mostramos 1 a 3 paquetes
+    // y el cliente TODAVIA no escogio ninguno. "Por definir" es el estado
+    // real; el tipo de fiesta ya va en su propio campo, asi que no se pierde
+    // nada. Si algun dia se limpian las opciones, aqui es donde se conecta.
+    Paquete: d.grande ? "A la medida" : "Por definir",
     // Un grupo de 60 nunca recibió un precio: marcarlo "Cotizado" haría que
     // el equipo lo leyera como un lead ya atendido y nadie lo llamaría.
     Estado: estado,
@@ -438,16 +524,20 @@ async function handle({ from, rawText, profile, continuar, forzar, esBoton, redi
       return { handled: true, dentro: false };
     }
 
-    // --- Grupo grande: cabemos 30. Arriba de eso NO se cotiza por WhatsApp:
-    // un precio por escrito es un compromiso, y 120 personas no caben en el
-    // paquete estándar. Va directo a una persona, que para eso es el lead
-    // mas grande que puede entrar.
-    if (d.personas && d.personas > MAXIMO) {
+    // --- Grupo grande. El tope NO es uno solo: una fiesta de empresa llega a
+    // 80 por el Brindis, que existe justo para la planilla completa, mientras
+    // que los paquetes de ninos van en las mesas de las canchas y llegan a 30.
+    // Mientras no sepamos el tipo usamos el tope alto: rebotar a un grupo de
+    // 50 ANTES de preguntarle si es de empresa es botar el lead mas caro que
+    // puede entrar. En cuanto diga que es cumpleanos, esta misma condicion lo
+    // vuelve a evaluar con el tope de 30.
+    const tope = (!d.tipo || d.tipo === "Empresa") ? MAX_EMPRESA : MAXIMO;
+    if (d.personas && d.personas > tope) {
       await borrar(redis, from);
-      logEvent?.("fiesta_grupo_grande", { from, personas: d.personas });
+      logEvent?.("fiesta_grupo_grande", { from, personas: d.personas, tope });
       await sendWatiMessage(from,
-        `¡${d.personas} personas! 😍 Eso ya es más grande que nuestro paquete ` +
-        `estándar, que llega hasta ${MAXIMO}.\n\n` +
+        `¡${d.personas} personas! 😍 Eso ya es más grande que nuestros paquetes, ` +
+        `que llegan hasta ${tope}.\n\n` +
         "Sí lo podemos hacer, pero se arma a la medida y hay que ver cómo " +
         "acomodamos el lugar. Ya le paso el dato a un compañero para que " +
         "les llame hoy mismo y lo cotice bien. 🙌");
@@ -530,6 +620,7 @@ async function soltar(redis, from) {
 }
 
 module.exports = {
-  handle, extraer, cotizar, soltar,
-  RE_INTENCION, EXPIRA_MS, MINIMO, MAXIMO,
+  handle, extraer, cotizar, soltar, esFinde,
+  RE_INTENCION, EXPIRA_MS, MINIMO, MAXIMO, MAX_EMPRESA,
+  PAQ_EMPRESA, IVA, RECARGO_FINDE,
 };

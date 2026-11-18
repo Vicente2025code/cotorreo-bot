@@ -10,6 +10,16 @@ const ok = (cond, etiqueta) => {
   if (!cond) fallos++;
 };
 
+// Las pruebas de FLUJO dicen fechas como "12 de diciembre", que el handler
+// resuelve a la proxima ocurrencia. O sea que el año cambia solo, y con el
+// recargo de viernes y sabado el total cambia con el año: escribir
+// "₡270.974" a mano haria que estas pruebas se rompieran solas en 2027.
+// Por eso el flujo revisa la ESTRUCTURA (que salgan los paquetes que caben,
+// con su total y su IVA) y la aritmetica se prueba aparte, en el bloque 22,
+// con fechas fijas.
+const traeTotalConIVA = (s) => /Total con IVA: \*₡[\d.]+\*/.test(s);
+const sinPreciosViejos = (s) => !/9\.500|11\.500|209\.000|253\.000|237\.500/.test(s);
+
 // --- dobles de prueba
 function hacerRedis({ roto = false } = {}) {
   const m = new Map();
@@ -61,9 +71,14 @@ function sesion(opts = {}) {
     await s.decir("el 12 de diciembre");
     ok(/restaurante[\s\S]*canchas[\s\S]*ambas/i.test(s.enviados[2]), "pregunta el area");
     const r = await s.decir("ambas");
-    ok(/₡209\.000/.test(s.enviados[3]), "cotiza 22 × 9.500 = ₡209.000");
-    ok(/₡253\.000/.test(s.enviados[3]), "cotiza el torneo = ₡253.000");
-    ok(/Hotel Nube/.test(s.enviados[3]), "menciona el premio");
+    const cot = s.enviados[3];
+    ok(/Brindis/.test(cot) && /Cierre de Año/.test(cot) && /Torneo de Cierre/.test(cot),
+       "22 personas caben en los tres paquetes y los tres salen");
+    ok((cot.match(/Total con IVA/g) || []).length === 3, "cada paquete trae su total con IVA");
+    ok(traeTotalConIVA(cot), "el total viene formateado en colones");
+    ok(/10% de servicio ya va incluido/.test(cot), "aclara que el servicio ya está dentro");
+    ok(/premio para la pareja campeona/.test(cot), "menciona el premio del torneo");
+    ok(sinPreciosViejos(cot), "ya no aparece ningún precio viejo");
     ok(s.alertas.length === 1, "avisa al equipo una sola vez");
     ok(/22 personas/.test(s.alertas[0].originalText), "la alerta trae el resumen");
     ok(r.dentro === false, "cierra el flujo al cotizar");
@@ -121,7 +136,8 @@ function sesion(opts = {}) {
     await s.decir("25 personas");
     await s.decir("5 de diciembre");
     await s.decir("ambas");
-    ok(/₡237\.500/.test(s.enviados.at(-1)), "cotiza igual con memoria (25 × 9.500)");
+    ok(traeTotalConIVA(s.enviados.at(-1)) && /Brindis/.test(s.enviados.at(-1)),
+       "cotiza igual con memoria, con Redis caído");
   }
 
   console.log("\n8. Sin AIRTABLE_TOKEN no se cae");
@@ -201,7 +217,7 @@ function sesion(opts = {}) {
     await s.decir("12 de diciembre");
     ok(/2️⃣/.test(s.enviados.at(-1)), "las opciones de área van numeradas");
     await s.decir("3");
-    ok(/₡190\.000/.test(s.enviados.at(-1)), '"3" = ambas, y cotiza 20 × 9.500');
+    ok(traeTotalConIVA(s.enviados.at(-1)), '"3" = ambas, y cotiza');
 
     // Un día del mes suelto en la pregunta de fecha no son personas.
     const s2 = sesion();
@@ -324,21 +340,45 @@ function sesion(opts = {}) {
     await s.decir("somos 120");
     const ultimo = s.enviados.at(-1);
     ok(!/1\.140\.000/.test(ultimo), "NO le manda un precio para 120 personas");
-    ok(/más grande que nuestro paquete/.test(ultimo), "le explica que se sale del paquete");
+    ok(/más grande que nuestros paquetes/.test(ultimo), "le explica que se sale del paquete");
     ok(/a la medida/.test(ultimo), "le ofrece armarlo a la medida");
     ok(s.alertas.length === 1 && /GRANDE/.test(s.alertas[0].reason),
        "avisa al equipo con alerta propia");
     ok(/120 personas/.test(s.alertas[0].originalText), "la alerta trae el tamaño");
   }
 
-  console.log("\n20. El borde: 30 sí, 31 no");
+  console.log("\n20. El borde ahora es por paquete: 80 de empresa, 30 de niños");
   {
+    // 30 es el tope de las mesas junto a las canchas: salen los tres.
     const s30 = sesion();
     await s30.decir("fiesta de empresa para 30 el 5 de diciembre en ambas");
-    ok(/₡285\.000/.test(s30.enviados.at(-1)), "30 personas sí se cotiza (30 × 9.500)");
+    const c30 = s30.enviados.at(-1);
+    ok(/Brindis/.test(c30) && /Cierre de Año/.test(c30) && /Torneo de Cierre/.test(c30),
+       "30 personas: salen los tres paquetes");
+
+    // 31 YA NO se rebota: para eso existe el Brindis. Este era el agujero.
     const s31 = sesion();
     await s31.decir("fiesta de empresa para 31 el 5 de diciembre en ambas");
-    ok(/más grande que nuestro paquete/.test(s31.enviados.at(-1)), "31 ya pasa a persona");
+    const c31 = s31.enviados.at(-1);
+    ok(/Brindis/.test(c31), "31 personas SÍ se cotiza: le sale el Brindis");
+    ok(!/Cierre de Año/.test(c31) && !/Torneo de Cierre/.test(c31),
+       "31 personas: NO le ofrece los que solo reciben 30");
+    ok(/mesas junto a las canchas, que reciben 30/.test(c31),
+       "le explica por qué solo le salió uno");
+
+    // 80 es el tope del Brindis; 81 ya es a la medida.
+    const s80 = sesion();
+    await s80.decir("fiesta de empresa para 80 el 5 de diciembre en ambas");
+    ok(/Brindis/.test(s80.enviados.at(-1)), "80 personas todavía se cotiza");
+    const s81 = sesion();
+    await s81.decir("fiesta de empresa para 81 el 5 de diciembre en ambas");
+    ok(/más grande que nuestros paquetes/.test(s81.enviados.at(-1)), "81 ya pasa a persona");
+
+    // Un cumpleaños de 31 sí se rebota: va en las mesas de las canchas.
+    const sk = sesion();
+    await sk.decir("cumpleaños para 31 el 5 de diciembre en ambas");
+    ok(/más grande que nuestros paquetes/.test(sk.enviados.at(-1)),
+       "un cumpleaños de 31 sí escala: su tope sigue siendo 30");
   }
 
   console.log("\n21. BLOQUEANTE: el número pelado y el bucle");
@@ -371,7 +411,7 @@ function sesion(opts = {}) {
     const g = sesion();
     await g.decir("fiesta de fin de año de la empresa");
     await g.decir("120");
-    ok(/más grande que nuestro paquete/.test(g.enviados.at(-1)),
+    ok(/más grande que nuestros paquetes/.test(g.enviados.at(-1)),
        '"120" pelado escala a persona, no se queda en el loop');
   }
 
@@ -389,6 +429,51 @@ function sesion(opts = {}) {
     const s2 = sesion();
     await s2.decir("cumpleaños para 20 el 20 de diciembre en el restaurante");
     ok(/₡130\.000/.test(s2.enviados.at(-1)), "sin desglose: 20 × 6.500 = ₡130.000");
+  }
+
+  // Esta es la prueba que cuida la plata. Llama a cotizar() directo con
+  // fechas FIJAS, asi que no depende de en que año corra ni de la fecha de
+  // hoy. Si alguien toca un precio, el IVA o el recargo, esto truena.
+  console.log("\n23. BLOQUEANTE: la aritmética de empresa (fechas fijas)");
+  {
+    // 2026-12-10 es jueves y 2026-12-12 es sábado. Fijos a propósito.
+    ok(fiestas.esFinde("2026-12-10") === false, "el 10 de diciembre de 2026 es entre semana");
+    ok(fiestas.esFinde("2026-12-12") === true, "el 12 de diciembre de 2026 es fin de semana");
+    ok(fiestas.esFinde(null) === null, "sin fecha no inventa si es fin de semana");
+
+    const base = { tipo: "Empresa", area: "Ambas" };
+
+    // Entre semana: 22 × 12.900 × 1,13 = 320.694
+    const jue = fiestas.cotizar({ ...base, personas: 22, fecha: "2026-12-10" }, "");
+    ok(/₡196\.394/.test(jue), "jueves, Brindis 22 × 7.900 + IVA = ₡196.394");
+    ok(/₡320\.694/.test(jue), "jueves, Cierre de Año 22 × 12.900 + IVA = ₡320.694");
+    ok(/₡444\.994/.test(jue), "jueves, Torneo 22 × 17.900 + IVA = ₡444.994");
+    ok(/viernes y sábado son ₡3\.000 más/.test(jue), "entre semana avisa del recargo");
+
+    // Sábado: el recargo entra ANTES del IVA.
+    // 22 × (12.900 + 3.000) × 1,13 = 395.274
+    const sab = fiestas.cotizar({ ...base, personas: 22, fecha: "2026-12-12" }, "");
+    ok(/₡270\.974/.test(sab), "sábado, Brindis 22 × 10.900 + IVA = ₡270.974");
+    ok(/₡395\.274/.test(sab), "sábado, Cierre de Año 22 × 15.900 + IVA = ₡395.274");
+    ok(/₡519\.574/.test(sab), "sábado, Torneo 22 × 20.900 + IVA = ₡519.574");
+    ok(/ya traen los ₡3\.000 de recargo/.test(sab), "el sábado dice que ya lo aplicó");
+
+    // El recargo va antes del IVA, no después: si se invirtiera el orden,
+    // el total del sábado daría ₡394.734 y no ₡395.274.
+    ok(!/₡394\.734/.test(sab), "el recargo se suma ANTES del IVA, no después");
+
+    // Grupo de 10 a 14: solo Brindis, porque el Cierre arranca en 15.
+    const chico = fiestas.cotizar({ ...base, personas: 12, fecha: "2026-12-10" }, "");
+    // Ojo: "Cierre de Año" SÍ aparece en la nota que explica desde cuándo se
+    // abre. Lo que no debe aparecer es su BLOQUE de precio.
+    ok(/🥂 \*Brindis\*/.test(chico) && !/🍽️ \*Cierre de Año\*/.test(chico),
+       "12 personas: solo sale el bloque del Brindis, el Cierre arranca en 15");
+    ok(/Desde 15 personas se abren/.test(chico), "y le dice desde cuándo se abren los otros");
+
+    // Sin fecha no se cae ni inventa el recargo.
+    const sinFecha = fiestas.cotizar({ ...base, personas: 20 }, "");
+    ok(/₡178\.540/.test(sinFecha), "sin fecha cotiza entre semana (20 × 7.900 + IVA)");
+    ok(/la fecha que escojan/.test(sinFecha), "y no inventa una fecha");
   }
 
   console.log(fallos === 0
