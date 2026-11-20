@@ -397,11 +397,29 @@ async function anotarEnAirtable(d, from, nombre, estado = "Cotizado") {
   };
   if (d.fecha) fields["Fecha deseada"] = d.fecha;
 
+  // Nunca mandar un campo vacio: con upsert, un null PISA lo que ya estaba.
+  // Si el cliente vuelve mañana sin repetir cuantos son, no se le puede
+  // borrar el dato que ya habia dado.
+  for (const k of Object.keys(fields)) {
+    if (fields[k] === null || fields[k] === undefined || fields[k] === "") delete fields[k];
+  }
+
+  // 🔴 UPSERT, no POST. Antes era `method: "POST"`, que CREA un registro
+  // cada vez, y esta funcion se llama desde tres lugares distintos
+  // (Calificando / Nuevo / Cotizado). Una sola persona que recotiza —
+  // cambia cuanta gente va, o vuelve al dia siguiente — aparecia dos o
+  // tres veces, y Mariela y Kati tenian que adivinar cual era la buena.
+  // performUpsert junta por Telefono: el lead se ACTUALIZA, no se duplica.
+  // typecast queda por si alguna opcion de select llega con otra grafia.
   const r = await fetch(
     "https://api.airtable.com/v0/apptnTz0OkjAAXADp/tblgZ15tXHhuDLYRy", {
-      method: "POST",
+      method: "PATCH",
       headers: { Authorization: `Bearer ${tk}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ records: [{ fields }] }),
+      body: JSON.stringify({
+        performUpsert: { fieldsToMergeOn: ["Telefono"] },
+        typecast: true,
+        records: [{ fields }],
+      }),
       signal: AbortSignal.timeout(5000),
     });
   if (!r.ok) console.log("⚠️ fiestas: Airtable", r.status, (await r.text()).slice(0, 180));
