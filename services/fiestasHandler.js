@@ -337,6 +337,45 @@ function cotizar(d, nombre) {
 const COMO_SALIR = "\n\n_Escribí *menú* o *asesor* cuando quieras._";
 
 // ------------------------------------------------------- Airtable (opcional)
+// Qué paquete anotarle al lead.
+//
+// El 20-nov-2026 se limpiaron las opciones del singleSelect de Airtable: ya no
+// llevan el precio adentro (eran "Empresa 9500", "Empresa Torneo 11500"…, que
+// se pudrieron solas cuando subieron las tarifas el 18-nov). Ahora son los
+// nombres de los paquetes y se mantienen aunque cambie el precio.
+//
+// Aun asi, la mayoria de las veces el paquete NO se sabe: el bot le muestra
+// los que caben y el cliente todavia no escoge. Solo se afirma cuando hay
+// evidencia real, en este orden:
+//   1. el cliente lo nombro en su mensaje,
+//   2. el tamano del grupo lo decide por el (abajo de 15 o arriba de 30 el
+//      unico que cabe es el Brindis: los otros dos van en las mesas junto a
+//      las canchas, que reciben 30, y arrancan en 15),
+//   3. si no, "Por definir", que es el estado honesto.
+// Los nombres tienen que coincidir LETRA POR LETRA con el singleSelect o
+// Airtable devuelve 422 y se pierde el campo.
+function deducirPaquete(d) {
+  if (d.grande) return "A la medida";
+
+  const t = String(d.ultimo || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+
+  if (/\btorneo|campeonat|cuadro de parej/.test(t))        return "Torneo de Cierre";
+  if (/\bbrindis\b/.test(t))                               return "Brindis";
+  if (/cierre de ano\b/.test(t))                           return "Cierre de Año";
+  if (/\bcompleto\b|algodon de azucar|arco de globos/.test(t)) return "Alegría · Completo";
+  if (/con canchas?\b/.test(t))                            return "Alegría · Con canchas";
+  if (/\bbasico\b/.test(t))                                return "Alegría · Básico";
+
+  const q = Number(d.personas) || 0;
+  if (d.tipo === "Empresa" && q && (q < PAQ_EMPRESA.cierre.min || q > MAXIMO)) {
+    return "Brindis";
+  }
+  return "Por definir";
+}
+
 async function anotarEnAirtable(d, from, nombre, estado = "Cotizado") {
   const tk = process.env.AIRTABLE_TOKEN;
   if (!tk) return;
@@ -348,14 +387,8 @@ async function anotarEnAirtable(d, from, nombre, estado = "Cotizado") {
     "Tipo de fiesta": d.tipo || "Por definir",
     Personas: d.personas || null,
     Area: d.area || "Por definir",
-    // "Paquete" es un singleSelect y sus opciones son las viejas
-    // (Empresa 9500 / Empresa Torneo 11500 / Alegria…). Escribir una opcion
-    // que no existe devuelve 422 y se pierde el campo.
-    // Ademas ya era incorrecto antes: al cotizar le mostramos 1 a 3 paquetes
-    // y el cliente TODAVIA no escogio ninguno. "Por definir" es el estado
-    // real; el tipo de fiesta ya va en su propio campo, asi que no se pierde
-    // nada. Si algun dia se limpian las opciones, aqui es donde se conecta.
-    Paquete: d.grande ? "A la medida" : "Por definir",
+    // Opciones limpiadas el 20-nov-2026. Ver deducirPaquete() arriba.
+    Paquete: deducirPaquete(d),
     // Un grupo de 60 nunca recibió un precio: marcarlo "Cotizado" haría que
     // el equipo lo leyera como un lead ya atendido y nadie lo llamaría.
     Estado: estado,
