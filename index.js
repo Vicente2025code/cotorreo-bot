@@ -232,6 +232,7 @@ function clearUserHandoff(from) {
   handoff.active = false;
   handoff.until = 0;
   handoff.notified = false;
+  handoff.acusado = false;   // la proxima ventana vuelve a acusar recibo una vez
   saveHandoffState();
 }
 
@@ -2112,7 +2113,27 @@ async function whatsappHandler(req, res) {
       return res.sendStatus(200);
     }
 
+    // 🔴 23-nov-2026. Mientras hay un humano asignado el bot se calla, y eso
+    // esta bien: no queremos que interrumpa una conversacion de verdad. Pero
+    // hasta hoy se callaba COMPLETO. Liliana escalo a las 19:51 y mando tres
+    // mensajes mas a las 19:52 y 19:53: cero respuestas. El cliente queda
+    // hablandole a una pared, y del otro lado puede no haber nadie mirando.
+    //
+    // Ahora se le acusa recibo UNA vez por ventana de handoff. Una, no mas:
+    // si el equipo ya esta contestando, un bot repitiendo "estas en la fila"
+    // seria peor que el silencio. El contador se reinicia solo cuando la
+    // ventana se vence o se cierra (ver clearUserHandoff).
     if (isHandoffActive(from)) {
+      const h = getUserHandoff(from);
+      if (!h.acusado) {
+        h.acusado = true;
+        saveHandoffState();
+        await sendWatiMessage(from,
+          "Lo leí y ya está en la fila 💚\n\n" +
+          "En un momento le contesta alguien del equipo. " +
+          "Si es urgente, llamá al 6303 8030.");
+        logEvent("handoff_acuse", { from });
+      }
       return res.sendStatus(200);
     }
 

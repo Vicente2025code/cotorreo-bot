@@ -92,7 +92,12 @@ const RE_APOYO = /\b(empresa|oficina|trabajo|companer|colabor|equipo|grupo|coleg
 // meses a contestar con numeros, asi que un "1" a "empresa / colegio /
 // cumpleanos" es la respuesta mas esperable que hay, no una salida. Solo 0 y 9
 // son universales en todo el bot (volver / menu principal).
-const RE_SALIR_GLOBAL = /^(0|9|menu|menú|inicio|hola|asesor|carrito|reservas)$/;
+// 🔴 "menu" y "menú" SALIERON de esta lista el 23-nov-2026. Liliana iba a
+// mitad de una cotizacion, con 10 personas ya anotadas, escribio "Menú" y el
+// bot la devolvio al menu principal con la promo del lunes: perdio todo. Un
+// cliente que pide ver la comida no esta cancelando su fiesta. Ahora se le
+// manda el link y se le repite la pregunta pendiente — ver FAQ mas abajo.
+const RE_SALIR_GLOBAL = /^(0|9|inicio|hola|asesor|carrito|reservas)$/;
 // Salidas que index.js NO atiende: las cerramos nosotros para que no caigan
 // en el fallback de IA.
 const RE_SALIR_SUAVE = /^(salir|cancelar|volver|atras|atrás|nada|olvidalo|ya no|despues|déspues)$/;
@@ -352,6 +357,82 @@ function cotizar(d, nombre) {
 }
 
 const COMO_SALIR = "\n\n_Escribí *menú* o *asesor* cuando quieras._";
+const MENU_LINK = "https://linktr.ee/elcotorreocr";
+
+/** La pregunta que toca ahora. Aparte, para poder REPETIRLA sin perder lo
+ *  que el cliente ya nos dijo cuando se mete una pregunta suya de por medio. */
+function pregunta(d, nombre, dentroDeVerdad) {
+  if (!d.tipo) {
+    return (dentroDeVerdad ? "" :
+      `🎈 ¡Qué bueno${nombre ? ", " + nombre : ""}! Con gusto le armamos la fiesta.\n` +
+      "Le hago unas preguntas rápidas y le paso el precio exacto.\n\n") +
+      "¿Qué tipo de fiesta es?\n\n" +
+      "1️⃣ De *empresa* o fin de año\n" +
+      "2️⃣ De *fin de curso* o colegio\n" +
+      "3️⃣ Un *cumpleaños*" + COMO_SALIR;
+  }
+  if (!d.personas) {
+    // El saludo va aqui tambien: el que entra por el boton de la campana se
+    // salta la pregunta del tipo, y sin esto caia de golpe en "cuantas
+    // personas" sin que nadie lo hubiera saludado.
+    return (dentroDeVerdad ? "¡Perfecto! " :
+      `🎈 ¡Qué bueno${nombre ? ", " + nombre : ""}! Con gusto le armamos la fiesta.\n` +
+      "Le hago dos o tres preguntas rápidas y le paso el precio exacto.\n\n") +
+      "¿Más o menos *cuántas personas* van a ser?" + COMO_SALIR;
+  }
+  if (!d.fecha) {
+    return `Anotado: ${d.personas} personas.\n\n` +
+      "¿Qué *fecha* tienen en mente? Trabajamos todos los días, en almuerzo o en cena." +
+      COMO_SALIR;
+  }
+  return "Última: ¿dónde la quieren?\n\n" +
+    "1️⃣ En el *restaurante*\n" +
+    "2️⃣ En las *canchas de pádel*\n" +
+    "3️⃣ En *ambas*" + COMO_SALIR;
+}
+
+// ---------------------------------------------------- Preguntas del cliente
+// 🔴 23-nov-2026. Liliana probo el flujo y encontro que el bot solo entiende
+// palabras sueltas: escribio "Me pasa el menú" y el bot repitio la pregunta
+// anterior como si no hubiera dicho nada; escribio "Menú" a secas y el bot la
+// mando al menu principal, BORRANDO los datos que ya le habia dado. Y a
+// "¿Qué fechas tienen?" contesto "¿cuántas personas van a ser?".
+//
+// Un cliente a mitad de una cotizacion tiene derecho a preguntar algo. La
+// regla ahora es: se le CONTESTA y se le repite la pregunta pendiente, sin
+// perder nada de lo que ya dijo. Solo el 0, el 9, "asesor" e "inicio" sacan
+// del flujo de verdad.
+const FAQ = [
+  {
+    re: /\b(menu|menú|carta|comida|platillos|que dan de comer)\b/,
+    responder: () => `Acá está el menú completo 👉 ${MENU_LINK}\n\n` +
+      "_Ojo: en los paquetes de fiesta la comida ya va incluida; ese menú es el de la carta normal._",
+  },
+  {
+    re: /\b(fecha|fechas|disponible|disponibilidad|cupo|espacio|libre|libres)\b/,
+    responder: () => "Trabajamos *todos los días*, en almuerzo o en cena. " +
+      "Diciembre se llena rápido los viernes y sábados, así que entre semana hay más campo.",
+  },
+  {
+    re: /\b(precio|precios|cuanto|cuánto|vale|cuesta|cobran|tarifa|presupuesto)\b/,
+    responder: () => "Los precios *por persona, más IVA*, son:\n\n" +
+      `🥂 *Brindis* — ${colones(PAQ_EMPRESA.brindis.base)} (de ${PAQ_EMPRESA.brindis.min} a ${MAX_EMPRESA} personas)\n` +
+      `🍽️ *Cierre de Año* — ${colones(PAQ_EMPRESA.cierre.base)} (de ${PAQ_EMPRESA.cierre.min} a ${MAXIMO})\n` +
+      `🏆 *Torneo de Cierre* — ${colones(PAQ_EMPRESA.torneo.base)} (de ${PAQ_EMPRESA.torneo.min} a ${MAXIMO})\n\n` +
+      "Viernes y sábados llevan ₡3.000 más por persona. " +
+      "Si me termina de contestar le doy el total exacto de su grupo.",
+  },
+  {
+    re: /\b(donde (estan|queda|es)|ubicacion|ubicación|direccion|dirección|como llego)\b/,
+    responder: () => "Estamos en *Plaza Cotorreo*, Barrio Lourdes, Ciudad Quesada. " +
+      `Todo en el mismo lugar: restaurante, canchas de pádel, billar y arcade.\n\n${LINK}`,
+  },
+];
+
+function responderFAQ(t) {
+  for (const f of FAQ) if (f.re.test(t)) return f.responder();
+  return null;
+}
 
 // ------------------------------------------------------- Airtable (opcional)
 // Qué paquete anotarle al lead.
@@ -501,14 +582,38 @@ async function handle({ from, rawText, profile, continuar, forzar, esBoton, redi
       return { handled: true, dentro: false };
     }
 
+    const nombre = (profile?.name || "").split(" ")[0] || "";
+
+    // Una PREGUNTA del cliente a mitad del flujo no es una cancelacion: se le
+    // contesta y se le repite lo que faltaba, sin perder nada de lo que ya
+    // dijo. Esto es lo que antes lo mandaba al menu principal o lo ignoraba.
+    if (dentroDeVerdad) {
+      const respuesta = responderFAQ(t);
+      if (respuesta) {
+        const d0 = { ...guardado, ts: Date.now(), ultimo: rawText };
+        await guardar(redis, from, d0);
+        await sendWatiMessage(from, respuesta + "\n\n" + pregunta(d0, nombre, true));
+        logEvent?.("fiesta_faq", { from, texto: t.slice(0, 40) });
+        return { handled: true, dentro: true };
+      }
+    }
+
     if (!dentroDeVerdad && !forzar) {
       const claro = RE_INTENCION.test(t) || RE_BOTON_CAMPANA.test(t.trim());
       const ambiguo = RE_AMBIGUA.test(t) && RE_APOYO.test(t);
       if (!claro && !ambiguo) return { handled: false };
     }
 
-    const nombre = (profile?.name || "").split(" ")[0] || "";
     const previo = vivo ? guardado : {};
+
+    // El que toca el boton de la campana YA nos dijo que es de empresa: el
+    // mensaje que recibio habla del cierre de ano de la oficina. Preguntarle
+    // "¿que tipo de fiesta es?" es un paso de mas justo para la gente que
+    // viene de la campana, que es la que mas nos cuesta traer.
+    if (!dentroDeVerdad && RE_BOTON_CAMPANA.test(t.trim())) {
+      previo.tipo = "Empresa";
+      logEvent?.("fiesta_entra_por_campana", { from });
+    }
 
     // --- Respuestas numeradas.
     // El resto del bot es 100% menus numerados, asi que numeramos las opciones
@@ -623,30 +728,9 @@ async function handle({ from, rawText, profile, continuar, forzar, esBoton, redi
       return { handled: true, dentro: false };
     }
 
-    let msg;
-    if (!d.tipo) {
-      msg = (dentroDeVerdad ? "" :
-        `🎈 ¡Qué bueno${nombre ? ", " + nombre : ""}! Con gusto le armamos la fiesta.\n` +
-        "Le hago unas preguntas rápidas y le paso el precio exacto.\n\n") +
-        "¿Qué tipo de fiesta es?\n\n" +
-        "1️⃣ De *empresa* o fin de año\n" +
-        "2️⃣ De *fin de curso* o colegio\n" +
-        "3️⃣ Un *cumpleaños*" + COMO_SALIR;
-    } else if (!d.personas) {
-      msg = "¡Perfecto! ¿Más o menos *cuántas personas* van a ser?" + COMO_SALIR;
-    } else if (!d.fecha) {
-      msg = `Anotado: ${d.personas} personas.\n\n` +
-        "¿Qué *fecha* tienen en mente? Trabajamos todos los días, en almuerzo o en cena." +
-        COMO_SALIR;
-    } else if (!d.area) {
-      msg = "Última: ¿dónde la quieren?\n\n" +
-        "1️⃣ En el *restaurante*\n" +
-        "2️⃣ En las *canchas de pádel*\n" +
-        "3️⃣ En *ambas*" +
-        COMO_SALIR;
-    } else {
-      msg = cotizar(d, nombre);
-    }
+    const msg = (d.tipo && d.personas && d.fecha && d.area)
+      ? cotizar(d, nombre)
+      : pregunta(d, nombre, dentroDeVerdad);
 
     const terminado = Boolean(d.tipo && d.personas && d.fecha && d.area);
 
