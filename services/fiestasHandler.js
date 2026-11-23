@@ -567,6 +567,7 @@ async function handle({ from, rawText, profile, continuar, forzar, esBoton, redi
         `👉 ${LINK}`);
       notifyHandoffAlert?.({
         reason: "🎉 Fiesta: no pude calificarla",
+        grupo: "fiestas",
         clientPhone: from,
         clientName: profile?.name || "",
         originalText: `Se trabó en ${pasoNuevo}. ` +
@@ -611,6 +612,7 @@ async function handle({ from, rawText, profile, continuar, forzar, esBoton, redi
         "les llame hoy mismo y lo cotice bien. 🙌");
       notifyHandoffAlert?.({
         reason: "🚨 Fiesta GRANDE (fuera de paquete)",
+        grupo: "fiestas",
         clientPhone: from,
         clientName: profile?.name || "",
         originalText: `${d.personas} personas · ${d.tipo || "tipo?"} · ` +
@@ -665,6 +667,7 @@ async function handle({ from, rawText, profile, continuar, forzar, esBoton, redi
       `${d.fechaLinda || d.fecha} · ${d.area}`;
     notifyHandoffAlert?.({
       reason: "🎉 Fiesta calificada",
+      grupo: "fiestas",
       clientPhone: from,
       clientName: profile?.name || "",
       originalText: resumen,

@@ -1030,14 +1030,19 @@ function getCheckoutText(from, cart) {
 // en WATI por uso previo en n8n). Se agregan más por HANDOFF_ALERT_NUMBERS
 // (CSV) sin redeploy. El 50663038030 (operativo Cotorreo) falló con
 // "validWhatsAppNumber: false": sirve para llamadas y SINPE, no tiene WhatsApp.
-const HANDOFF_ALERT_NUMBERS = (process.env.HANDOFF_ALERT_NUMBERS || "50660127557")
-  .split(",")
-  .map(n => n.trim())
-  .filter(Boolean);
+// A quien le toca cada alerta: ver services/rutaAlertas.js, donde esta el
+// porque y la prueba. Dos grupos, "fiestas" y "operacion", y la lista vieja
+// como red de seguridad.
+const RUTA = require("./services/rutaAlertas").construir(process.env);
+const HANDOFF_ALERT_NUMBERS = RUTA.base;
+const destinatarios = RUTA.destinatarios;
+const TODO_EL_STAFF = RUTA.todoElStaff;
 
 if (!HANDOFF_ALERT_NUMBERS.length) {
   console.log("🚨 HANDOFF_ALERT_NUMBERS quedó VACÍO: ninguna alerta al staff va a llegar.");
 }
+console.log("📣 alertas · fiestas:", (RUTA.grupos.fiestas.length || "(usa la lista vieja)"),
+            "· operación:", (RUTA.grupos.operacion.length || "(usa la lista vieja)"));
 
 // Vigilante de espera — ver services/vigilanteEspera.js.
 // Nace del caso Luisa (6-nov-2026): pidió un paquete para 25 niños, un humano
@@ -1057,7 +1062,7 @@ const {
 const vigilante = crearVigilante({
   redis,
   // El staff no se alerta a sí mismo: las alertas llegan a estos números.
-  excluidos: HANDOFF_ALERT_NUMBERS,
+  excluidos: TODO_EL_STAFF,
   registrar: (ev, payload) => logEvent(ev, payload),
 });
 
@@ -1386,13 +1391,17 @@ async function sendWatiButtonsMessage(to, { header, body, footer, buttons }) {
 const WATI_PAUSA_MS = 1500;
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// Manda una alerta a todos los números del staff, en serie y espaciadas.
+// Manda una alerta a los números del grupo que toque, en serie y espaciadas.
 // Devuelve true solo si al menos un destinatario la recibió de verdad.
-async function mandarAlertaStaff(tipo, detalle) {
+// El vigilante de espera es OPERACION: un cliente esperando respuesta no es
+// una cotizacion, y es justo el tipo de aviso que Vicente no queria que le
+// cayera a Kati.
+async function mandarAlertaStaff(tipo, detalle, grupo = "operacion") {
+  const destinos = destinatarios(grupo);
   let algunaOk = false;
-  for (let i = 0; i < HANDOFF_ALERT_NUMBERS.length; i++) {
+  for (let i = 0; i < destinos.length; i++) {
     if (i > 0) await dormir(WATI_PAUSA_MS);
-    const ok = await sendWatiTemplate(HANDOFF_ALERT_NUMBERS[i], "staff_alerta", [tipo, detalle]);
+    const ok = await sendWatiTemplate(destinos[i], "staff_alerta", [tipo, detalle]);
     if (ok) algunaOk = true;
   }
   return algunaOk;
@@ -1473,7 +1482,8 @@ async function avisarCanalNoSoportado({ canal, remitente, texto }) {
   return true;
 }
 
-async function notifyHandoffAlert({ reason, clientPhone, clientName, originalText }) {
+async function notifyHandoffAlert({ reason, clientPhone, clientName, originalText,
+                                    grupo = "operacion" }) {
   // Calcular hora "atender antes de" en hora Costa Rica. Usa el SLA del staff,
   // no la ventana de silencio del bot (son cosas distintas: ver STAFF_SLA_MS).
   const slaDeadline = new Date(Date.now() + STAFF_SLA_MS);
@@ -1489,14 +1499,16 @@ async function notifyHandoffAlert({ reason, clientPhone, clientName, originalTex
   const msgPart = originalText ? ` · Mensaje: "${String(originalText).slice(0, 80)}"` : "";
   const detalle = `${namePart}(${phoneMasked})${msgPart}. Atender en WATI antes de ${hhmm}.`;
 
-  // Disparar en paralelo a todos los números configurados
-  await Promise.all(HANDOFF_ALERT_NUMBERS.map(num =>
+  // Disparar en paralelo, pero solo al grupo que le toca esta alerta.
+  const destinos = destinatarios(grupo);
+  await Promise.all(destinos.map(num =>
     sendWatiTemplate(num, "staff_alerta", [reason, detalle])
   ));
 
   logEvent("handoff_alert_sent", {
     reason,
-    targets_count: HANDOFF_ALERT_NUMBERS.length,
+    grupo,
+    targets_count: destinos.length,
     client: phoneMasked
   });
 }
