@@ -532,6 +532,9 @@ const MENU_PRINCIPAL_BUTTONS = [
   { id: "3", text: "👤 Hablar asesor" }
 ];
 
+// Leer lo que el cliente toco en un boton: ver services/leerBoton.js.
+const { idDeBoton } = require("./services/leerBoton");
+
 /**
  * Traduce el texto de una etiqueta de botón a su id ("🎾 Jugar pádel" → "2").
  * WATI a veces entrega el toque como texto plano en vez de como buttonReply;
@@ -1598,28 +1601,9 @@ function normalizeWatiPayload(body) {
   // Si el cliente tocó un botón interactivo, WATI manda buttonReply / interactiveButtonReply
   // — preferimos el ID del botón (ej "1", "2") sobre el texto visible ("🍽️ Comer en Plaza")
   // porque los handlers de estado del bot ya reaccionan a "1", "2", "3".
-  const buttonReplyId =
-    // WATI shapes (varias versiones de su API)
-    b.buttonReply?.id ||
-    b.buttonReply?.payload ||
-    b.interactiveButtonReply?.id ||
-    b.interactiveButtonReply?.payload ||
-    b.interactive?.button_reply?.id ||
-    b.interactive?.list_reply?.id ||
-    b.button?.payload ||
-    b.button?.text ||
-    b.listReply?.id ||
-    b.listReply?.rowId ||
-    // WhatsApp Cloud API shapes (anidados)
-    b.message?.interactive?.button_reply?.id ||
-    b.message?.interactive?.list_reply?.id ||
-    b.message?.buttonReply?.id ||
-    b.message?.listReply?.id ||
-    b.messages?.[0]?.button_reply?.id ||
-    b.messages?.[0]?.list_reply?.id ||
-    b.messages?.[0]?.interactive?.button_reply?.id ||
-    b.messages?.[0]?.interactive?.list_reply?.id ||
-    null;
+  // Toda la cadena vive en services/leerBoton.js, con el porque y su prueba
+  // contra el webhook real que rompio el caso Juan Ramirez.
+  const buttonReplyId = idDeBoton(b);
 
   // Detección heurística: si llega cualquier indicador de reply pero no extrajimos ID,
   // loggeamos para diagnóstico (estaremos pegando shapes nuevos).
@@ -1652,7 +1636,12 @@ function normalizeWatiPayload(body) {
   // mudo. Medido el 27-sep: 5 toques de botón sin ninguna respuesta, 3 de
   // ellos "Hablar asesor" — o sea, clientes pidiendo un humano sin que se
   // disparara la alerta al staff. Acá traducimos la etiqueta de vuelta a su id.
-  const rawText = buttonReplyId || textoDeBotonAId(rawTextCrudo) || rawTextCrudo;
+  // textoDeBotonAId tambien se le aplica a lo que salio del boton: ahora que
+  // un boton puede entregar su ETIQUETA en vez de un id, "🍽️ Comer en Plaza"
+  // tiene que seguir llegando a los handlers como "1".
+  const rawText =
+    textoDeBotonAId(buttonReplyId) || buttonReplyId ||
+    textoDeBotonAId(rawTextCrudo) || rawTextCrudo;
 
   // ¿Vino de un toque de botón o lo escribió a mano? Importa para los flujos
   // con menú numerado: un "3" tecleado es la opción 3, pero un "3" que salió
