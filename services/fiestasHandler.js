@@ -64,7 +64,24 @@ const P_ALEGRIA = { basico: 6500, canchas: 9500, completo: 12000 };
 const P_ADULTO = 5000;                      // almuerzo del adulto acompanante
 
 // Intencion clara: una sola de estas palabras basta.
-const RE_INTENCION = /\b(cumple|cumpleanos|fiesta|fiestas|evento|eventos|quinceanos|aniversario|bautizo|graduacion|fin de curso|fin de ano|posada|despedida|festejo)\b/;
+//
+// 🔴 23-nov-2026. Liliana probo el bot con los textos REALES que mandan los
+// botones y cuatro de los siete caminos rebotaban. El bot conocia "fiesta" y
+// "fin de ano" pero NO los nombres de sus propios paquetes: "Cierre de Ano"
+// no es "fin de ano" para una expresion regular, y asi los tres botones de
+// EMPRESA de la landing —los de 7.900, 12.900 y 17.900— caian al fallback de
+// IA, que contesta "esa info no la tengo a mano" o escala a un humano.
+// Por eso van aqui los nombres de producto. Si manana se inventa un paquete
+// nuevo, su nombre se agrega a esta linea el mismo dia.
+// "torneo" va completo como "torneo de cierre": Alpadel hace torneos de padel
+// de verdad y un "torneo" suelto mandaria al flujo de fiestas a quien solo
+// pregunta por el campeonato del sabado.
+const RE_INTENCION = /\b(cumple|cumpleanos|fiesta|fiestas|evento|eventos|quinceanos|aniversario|bautizo|graduacion|fin de curso|fin de ano|cierre de ano|torneo de cierre|brindis|posada|despedida|festejo)\b/;
+// El boton de la plantilla de la campana. Va aparte y ANCLADO al mensaje
+// completo, no suelto dentro de RE_INTENCION: "quiero informacion" a secas es
+// el boton, pero "quiero informacion de las canchas" es otra cosa y no debe
+// entrar aqui. Al 23-nov hay 239 telefonos con ese boton en pantalla.
+const RE_BOTON_CAMPANA = /^(quiero|mas) informacion\.?$/;
 // Ambiguas: "paquete" tambien es el paquete ejecutivo o el de 20 piezas de
 // sushi. Solo cuentan si vienen acompanadas de algo de grupo o celebracion.
 const RE_AMBIGUA = /\b(paquete|paquetes|celebrar|navidena|navideno|alquilar|reservar el (local|lugar|salon))\b/;
@@ -485,7 +502,7 @@ async function handle({ from, rawText, profile, continuar, forzar, esBoton, redi
     }
 
     if (!dentroDeVerdad && !forzar) {
-      const claro = RE_INTENCION.test(t);
+      const claro = RE_INTENCION.test(t) || RE_BOTON_CAMPANA.test(t.trim());
       const ambiguo = RE_AMBIGUA.test(t) && RE_APOYO.test(t);
       if (!claro && !ambiguo) return { handled: false };
     }
@@ -672,6 +689,7 @@ async function soltar(redis, from) {
 
 module.exports = {
   handle, extraer, cotizar, soltar, esFinde,
-  RE_INTENCION, EXPIRA_MS, MINIMO, MAXIMO, MAX_EMPRESA,
+  RE_INTENCION, RE_BOTON_CAMPANA, RE_AMBIGUA, RE_APOYO, norm,
+  EXPIRA_MS, MINIMO, MAXIMO, MAX_EMPRESA,
   PAQ_EMPRESA, IVA, RECARGO_FINDE,
 };
