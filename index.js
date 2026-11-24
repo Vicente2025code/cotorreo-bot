@@ -21,6 +21,9 @@ const { preguntaPorRollos2x1, requiereHumano } = require("./services/intencionMe
 // texto el bloque de helpers de index.js, y un require() en medio de ese bloque
 // se resuelve contra tests/ y revienta.
 const { idDeBoton } = require("./services/leerBoton");
+// Reconocer el eco de los mensajes interactivos del propio bot: ver
+// services/ecoDelBot.js. Sin esto el menu principal activaba un handoff falso.
+const ecoDelBot = require("./services/ecoDelBot");
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -1364,6 +1367,20 @@ async function sendWatiButtonsMessage(to, { header, body, footer, buttons }) {
     }))
   };
 
+  // Registrar el cuerpo ANTES de enviar, para reconocer el eco que WATI va a
+  // devolver por webhook. Si no, el bot lee su propio menu como "un humano
+  // contesto", se calla 24 h y el cliente queda hablandole a una pared: el
+  // 24-nov-2026 le paso a la audiologa Deylin Mena y a "Johel" el mismo dia.
+  //
+  // Va antes del fetch y no despues como en sendWatiMessage: el eco llego 318
+  // ms despues del envio y la carrera es real. Registrar temprano solo puede
+  // dejar una entrada huerfana de 60 s si el envio falla, que no hace dano.
+  //
+  // El cuerpo se compara por "contiene", NO por igualdad: WATI ecoa el mensaje
+  // renderizado (encabezado + cuerpo + botones como lista numerada). Ver
+  // services/ecoDelBot.js.
+  await ecoDelBot.registrarCuerpo(redis, whatsappNumber, payload.body);
+
   try {
     const response = await fetch(endpoint, {
       method: "POST",
@@ -2020,6 +2037,12 @@ async function whatsappHandler(req, res) {
           if (inboundText) {
             const isMember = await redis.sismember(`bot_sent_texts:${cleanFrom}`, inboundText);
             esEcoDelBot = !!isMember;
+            // Segunda vuelta para los mensajes INTERACTIVOS (el menu
+            // principal). No pueden compararse por igualdad porque WATI los
+            // ecoa renderizados, con el encabezado y los botones pegados.
+            if (!esEcoDelBot) {
+              esEcoDelBot = await ecoDelBot.cuerpoCoincide(redis, cleanFrom, inboundText);
+            }
           } else {
             // Sin texto (probablemente imagen sin caption) — fallback conservador:
             // asumir eco para no callar al bot por error en un evento raro.
