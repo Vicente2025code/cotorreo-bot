@@ -479,13 +479,31 @@ function sesion(opts = {}) {
     // el total del sábado daría ₡394.734 y no ₡395.274.
     ok(!/₡394\.734/.test(sab), "el recargo se suma ANTES del IVA, no después");
 
-    // Grupo de 10 a 14: solo Brindis, porque el Cierre arranca en 15.
+    // Grupo de 10 a 14: Brindis y Cierre de Año, pero NO el Torneo.
+    // 24-nov-2026: el Cierre bajó de 15 a 10. Antes un grupo de 12 que pedía
+    // comida y cancha solo recibía el Brindis, que no trae ninguna de las dos.
     const chico = fiestas.cotizar({ ...base, personas: 12, fecha: "2026-12-10" }, "");
-    // Ojo: "Cierre de Año" SÍ aparece en la nota que explica desde cuándo se
-    // abre. Lo que no debe aparecer es su BLOQUE de precio.
-    ok(/🥂 \*Brindis\*/.test(chico) && !/🍽️ \*Cierre de Año\*/.test(chico),
-       "12 personas: solo sale el bloque del Brindis, el Cierre arranca en 15");
-    ok(/Desde 15 personas se abren/.test(chico), "y le dice desde cuándo se abren los otros");
+    ok(/🥂 \*Brindis\*/.test(chico), "12 personas: sale el Brindis");
+    ok(/🍽️ \*Cierre de Año\*/.test(chico), "12 personas: y ahora también el Cierre de Año");
+    ok(/₡174\.924/.test(chico), "12 × 12.900 + IVA = ₡174.924");
+    ok(!/🏆 \*Torneo de Cierre\*/.test(chico),
+       "12 personas: el Torneo NO, su cuadro es de 8 parejas");
+    // La nota se arma desde los mínimos reales: el único que falta es el Torneo,
+    // así que va en singular y con SU número, no con el del Cierre.
+    ok(/Desde 15 personas se abre también el Torneo de Cierre\./.test(chico),
+       "y le dice desde cuándo se abre el que le faltó, en singular");
+    ok(!/se abren/.test(chico), "no dice 'se abren' cuando falta uno solo");
+
+    // El borde exacto del mínimo nuevo: 10 entra, 9 ya lo atajó requiereMinimo.
+    const diez = fiestas.cotizar({ ...base, personas: 10, fecha: "2026-12-10" }, "");
+    ok(/🍽️ \*Cierre de Año\*/.test(diez) && /₡145\.770/.test(diez),
+       "10 personas: el Cierre de Año entra justo, 10 × 12.900 + IVA = ₡145.770");
+
+    // A los 15 ya salen los tres y la nota desaparece.
+    const quince = fiestas.cotizar({ ...base, personas: 15, fecha: "2026-12-10" }, "");
+    ok(/🏆 \*Torneo de Cierre\*/.test(quince) && /₡303\.405/.test(quince),
+       "15 personas: entra el Torneo, 15 × 17.900 + IVA = ₡303.405");
+    ok(!/Desde \d+ personas/.test(quince), "con los tres adentro ya no hay nota de mínimos");
 
     // Sin fecha no se cae ni inventa el recargo.
     const sinFecha = fiestas.cotizar({ ...base, personas: 20 }, "");

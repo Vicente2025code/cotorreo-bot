@@ -56,7 +56,11 @@ const IVA = 0.13;
 const RECARGO_FINDE = 3000;
 const PAQ_EMPRESA = {
   brindis: { nombre: "Brindis",          base: 7900,  min: 10, max: MAX_EMPRESA },
-  cierre:  { nombre: "Cierre de Año",    base: 12900, min: 15, max: MAXIMO },
+  // 24-nov-2026: el Cierre de Ano bajo de 15 a 10 por decision de Vicente. El
+  // caso: a un grupo de 12 que pide comida y cancha el bot solo le ofrecia el
+  // Brindis, que no trae ninguna de las dos. El Torneo NO bajo: su cuadro es de
+  // 8 parejas.
+  cierre:  { nombre: "Cierre de Año",    base: 12900, min: 10, max: MAXIMO },
   torneo:  { nombre: "Torneo de Cierre", base: 17900, min: 15, max: MAXIMO },
 };
 
@@ -316,9 +320,18 @@ function cotizar(d, nombre) {
     if (q > MAXIMO) {
       nota = `\n\nPara ${q} personas el único que les sirve es el Brindis: los ` +
         `otros dos van en las mesas junto a las canchas, que reciben ${MAXIMO}.`;
-    } else if (q < PAQ_EMPRESA.cierre.min) {
-      nota = `\n\nDesde ${PAQ_EMPRESA.cierre.min} personas se abren también el ` +
-        "Cierre de Año y el Torneo, que traen comida y cancha.";
+    } else {
+      // Se arma desde los minimos REALES de los paquetes, no desde un numero
+      // escrito a mano. El 24-nov-2026 el Cierre de Ano bajo de 15 a 10 y una
+      // nota con el 15 adentro le habria prometido a un grupo de 12 que "desde
+      // 15" se abre algo que ya tenia abierto.
+      const faltan = Object.values(PAQ_EMPRESA).filter((p) => q < p.min);
+      if (faltan.length) {
+        const desde = Math.min(...faltan.map((p) => p.min));
+        const verbo = faltan.length === 1 ? "se abre" : "se abren";
+        nota = `\n\nDesde ${desde} personas ${verbo} también el ` +
+          faltan.map((p) => p.nombre).join(" y el ") + ".";
+      }
     }
 
     // La regla del fin de semana se dice SIEMPRE, tambien cuando cotizamos un
