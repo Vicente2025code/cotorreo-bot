@@ -9,6 +9,11 @@ const src = fs.readFileSync("./index.js", "utf8");
 eval(src.match(/const MENU_PRINCIPAL_BUTTONS = \[[\s\S]*?\];/)[0].replace("const ", "var "));
 eval(src.match(/function textoDeBotonAId[\s\S]*?return null;\s*\}/)[0]);
 
+// normalizeWatiPayload llama a idDeBoton, que vive en services/leerBoton.js.
+// El eval corre en el scope de ESTE archivo, asi que el modulo se trae aca con
+// la ruta relativa a tests/, no la de index.js.
+var { idDeBoton } = require("../services/leerBoton");
+
 // Aislar normalizeWatiPayload
 const normalizeStart = src.indexOf("function normalizeWatiPayload");
 const normalizeEnd = src.indexOf("// =====", normalizeStart);

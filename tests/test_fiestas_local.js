@@ -187,7 +187,12 @@ function sesion(opts = {}) {
   {
     // Todo lo que isGlobalCommand() acepta en index.js. Ojo: "1".."3" NO van
     // acá — son las opciones del menú numerado del propio flujo (test 11b).
-    for (const salida of ["menu", "menú", "inicio", "hola", "asesor",
+    //
+    // "menu"/"menú" SALIERON de esta lista el 23-nov-2026. Liliana iba en
+    // "10 personas", escribió "Menú" y el bot le tiró el menú principal desde
+    // cero: perdió la cotización a medias. Ahora el menú se MANDA sin soltar el
+    // flujo — abajo, en "11c".
+    for (const salida of ["inicio", "hola", "asesor",
                           "carrito", "reservas", "0", "9"]) {
       const s = sesion();
       await s.decir("quiero la fiesta de mi empresa");
@@ -203,6 +208,18 @@ function sesion(opts = {}) {
     const r = await s.decir("3", { name: "Karla Jiménez" }, true);
     ok(r.salir === true && s.enviados.length === antes,
        "botón Hablar asesor: sale sin contestar encima");
+  }
+
+  console.log("\n11c. el menú ya no borra la cotización (hallazgo de Liliana, 23-nov)");
+  {
+    const s = sesion();
+    await s.decir("quiero la fiesta de mi empresa");
+    await s.decir("somos 20");
+    const r = await s.decir("menú");
+    const ultimo = s.enviados[s.enviados.length - 1];
+    ok(r.dentro === true && r.salir !== true, '"menú" ya NO suelta el flujo');
+    ok(/linktr\.ee/.test(ultimo), "manda el link del menú");
+    ok(/20 personas/.test(ultimo), "🔴 y NO perdió las 20 personas");
   }
 
   console.log("\n11b. El menú numerado: 1/2/3 son opciones, no salidas");

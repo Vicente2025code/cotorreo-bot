@@ -96,6 +96,23 @@ function nuevo({ t0 = MEDIODIA, excluidos = ["50660127557"], maxPorCorrida = 10 
   return { v, reloj, eventos };
 }
 
+// Un reloj metido a mano en Redis, sin pasar por marcarEspera: así quedaron los
+// que ya estaban corriendo cuando se agregó el filtro de frases de cierre.
+// `texto` null simula un contexto ya vencido por TTL.
+function conRelojViejo(tel, edadMs, texto) {
+  const redis = fakeRedis();
+  const v = crearVigilante({
+    redis, ahora: () => MEDIODIA, avisoMin: 20, urgenteH: 20,
+    horaInicio: 8, horaFin: 22,
+  });
+  const desde = MEDIODIA - edadMs;
+  redis.zadd(v._claves.ZSET, { nx: true }, { score: desde, member: tel });
+  if (texto !== null) {
+    redis.set(v._claves.claveCtx(tel), JSON.stringify({ nombre: "Marco", texto, desde }));
+  }
+  return { v, redis };
+}
+
 async function run() {
 
   // ─── El reloj arranca y suena ───
@@ -303,6 +320,87 @@ async function run() {
     eq(requiereRespuesta("¿cuánto vale la cancha?"), true);
     eq(requiereRespuesta("quiero reservar"), true);
     eq(requiereRespuesta("gracias, pero cuánto sale el combo?"), true);
+  });
+
+  // ═══ Falsa alarma del 23-nov-2026 ═══
+  // Un cliente (***6295) cerró la conversación a la 01:07 con "Ya te aviso".
+  // No había nada que contestar y el vigilante mandó DOS alertas: el aviso a
+  // los 22 min y la URGENTE a las 20 h. Vicente: "acaba de llegarme un aviso
+  // de que una persona tiene 20 horas sin recibir respuesta y no es por
+  // cotización".
+  //
+  // La causa: CIERRES trabaja palabra por palabra y "ya te aviso" no tiene ni
+  // una palabra de cierre. Hacía falta una capa de FRASES.
+
+  await t("🔴 'Ya te aviso' NO pide respuesta — la pelota la tiene el cliente", () => {
+    eq(requiereRespuesta("Ya te aviso"), false);
+    eq(requiereRespuesta("ya te aviso"), false);
+    eq(requiereRespuesta("Ok, ya te aviso"), false);        // con cierre pegado
+    eq(requiereRespuesta("ya te aviso, gracias"), false);
+    eq(requiereRespuesta("Yo le aviso"), false);
+    eq(requiereRespuesta("luego les aviso"), false);
+    eq(requiereRespuesta("ahí te digo"), false);
+    eq(requiereRespuesta("lo consulto y te aviso"), false);
+  });
+
+  await t("otras frases que tampoco piden nada", () => {
+    eq(requiereRespuesta("voy en camino"), false);
+    eq(requiereRespuesta("ya voy"), false);
+    eq(requiereRespuesta("ahí vamos"), false);
+    eq(requiereRespuesta("nos vemos mañana"), false);
+    eq(requiereRespuesta("ya lo vi"), false);
+    eq(requiereRespuesta("pura vida"), false);
+    eq(requiereRespuesta("con mucho gusto"), false);
+    eq(requiereRespuesta("que estén bien"), false);
+    eq(requiereRespuesta("feliz noche"), false);
+  });
+
+  await t("🔴 y la frase de cierre NO se traga una pregunta pegada", () => {
+    // Lo que no se puede romper: si después del cierre hay sustancia, avisa.
+    eq(requiereRespuesta("ya te aviso, pero cuánto sale?"), true);
+    eq(requiereRespuesta("voy en camino, me guardan mesa?"), true);
+    eq(requiereRespuesta("nos vemos mañana a las 7, confirmame"), true);
+    eq(requiereRespuesta("ya lo vi pero no me funciona el link"), true);
+  });
+
+  await t("🔴 un reloj YA guardado con una frase de cierre no alerta", async () => {
+    // Los relojes que estaban en Redis se arrancaron con la regla vieja (solo
+    // palabras) y seguirían sonando. Por eso se re-evalúa también al momento de
+    // avisar, no nada más al marcar.
+    // Se mete a mano, saltándose marcarEspera, igual que un reloj viejo.
+    const { v, redis } = conRelojViejo("50688889999", 21 * H, "Ya te aviso");
+    const a = await v.revisarEsperas();
+    eq(a.length, 0);
+    // y queda limpio, no se re-evalúa cada 5 min para siempre
+    eq(await redis.zscore(v._claves.ZSET, "50688889999"), null);
+  });
+
+  await t("pero un reloj viejo CON sustancia sí alerta", async () => {
+    const { v } = conRelojViejo("50688887777", 21 * H,
+      "si nos sirve el precio yo haría una lista");
+    const a = await v.revisarEsperas();
+    eq(a.length, 1);
+    eq(a[0].nivel, "urgente");
+  });
+
+  await t("y un reloj sin contexto guardado NO se descarta", async () => {
+    // Si el ctx se venció (TTL) pero el reloj vive, hay que avisar: no saber
+    // qué dijo no es razón para callarse.
+    const { v } = conRelojViejo("50688886666", 2 * H, null);
+    const a = await v.revisarEsperas();
+    eq(a.length, 1);
+  });
+
+  await t("🔴 lo que el archivo advierte que NO se debe callar", () => {
+    // El 27-sep un cliente escribió "Buenas?" y se quedó sin respuesta.
+    eq(requiereRespuesta("buenas"), true);
+    eq(requiereRespuesta("Buenas?"), true);
+    eq(requiereRespuesta("buenas noches"), true);
+    // "sí"/"está bien" a una pregunta del staff casi siempre necesita
+    // seguimiento: no entran a la lista de frases.
+    eq(requiereRespuesta("sí"), true);
+    eq(requiereRespuesta("está bien"), true);
+    eq(requiereRespuesta("ya quedamos"), true);
   });
 
   // ═══ Hallazgos de la revisión del 10-nov-2026 ═══

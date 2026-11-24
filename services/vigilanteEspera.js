@@ -81,12 +81,63 @@ function colapsar(palabra) {
   return palabra.replace(/(.)\1+/g, "$1");
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Frases de cierre
+// ─────────────────────────────────────────────────────────────────────────────
+// CIERRES mira palabra por palabra, y así se escapan los cierres de VARIAS
+// palabras donde ninguna es de cierre por sí sola. El 23-nov-2026 un cliente
+// terminó la conversación a la 01:07 con "Ya te aviso" y el vigilante mandó dos
+// alertas —el aviso a los 22 min y la URGENTE a las 20 h— por algo que no
+// pedía respuesta: la pelota la tenía él.
+//
+// Se evalúan contra el NÚCLEO del mensaje: el texto normalizado al que ya se le
+// quitaron las palabras de CIERRES. Así "Ok, ya te aviso, gracias" queda en
+// "ya te aviso" y entra, mientras que "ya te aviso, pero cuánto sale?" queda
+// en "ya te aviso pero cuanto sale" y NO entra.
+//
+// Criterio para agregar una frase acá: tiene que significar, sin ambigüedad,
+// que el siguiente movimiento le toca al cliente. Por eso NO están "está bien"
+// ni "ya quedamos" ni "buenas noches": son del mismo tipo que "sí" —
+// contestarle eso al staff casi siempre necesita seguimiento— y el archivo ya
+// advierte que un "Buenas?" sin respuesta pasó de verdad el 27-sep.
+const FRASES_CIERRE = [
+  // "ya te aviso", "yo le aviso", "luego les digo", "mañana te confirmo"
+  /^(ya|yo|luego|despues|ahi|alla|manana|mas tarde|al rato) ?(te|le|les)? ?(aviso|avisamos|digo|decimos|confirmo|confirmamos|escribo|escribimos)$/,
+  /^(te|le|les) (aviso|avisamos|digo|decimos|confirmo|confirmamos|escribo|escribimos)$/,
+  // "lo consulto y te aviso", "lo reviso", "la pienso y le digo".
+  // La "y" va OPCIONAL a propósito: CIERRES ya se come los conectores ("y",
+  // "de", "por", "muy"), así que al núcleo llega "lo consulto te aviso". Una
+  // frase de acá nunca debe depender de una palabra que CIERRES quita.
+  /^(lo|la) (consulto|consultamos|reviso|revisamos|pienso|pensamos|veo|vemos|pregunto|preguntamos)( (y )?(te|le|les)? ?(aviso|digo|confirmo|avisamos|decimos|confirmamos))?$/,
+  // "voy en camino", "ya vamos saliendo", "ahí voy"
+  /^(ya )?(voy|vamos|salgo|salimos)( (en|de) camino| para alla| saliendo| llegando)?$/,
+  /^(ahi|alla) (voy|vamos|nos vemos|te veo|los veo)$/,
+  // "nos vemos al rato"
+  /^nos vemos( ahi| alla| manana| al rato| mas tarde| luego)?$/,
+  // "ya lo vi", "ya entendí"
+  /^ya ?(lo|la)? ?(vi|vimos|lei|leimos|entendi|entendimos)$/,
+  // cortesía con la que se cierra, no con la que se abre
+  /^(que|q) (esten|este|estes|le vaya|les vaya|te vaya) bien$/,
+  /^feliz (noche|dia|tarde|fin de semana|navidad|ano nuevo)$/,
+  /^pura vida$/,
+  /^con (mucho )?gusto$/,
+];
+
 function requiereRespuesta(texto) {
   const limpio = normalizar(texto);
   if (!limpio) return false;
   const palabras = limpio.split(" ").filter(Boolean);
   if (!palabras.length) return false;
-  return palabras.some((p) => !CIERRES.has(colapsar(p)));
+
+  // El núcleo: lo que queda después de sacar las palabras de cierre. Si no
+  // queda nada, el mensaje era puro "ok, muchas gracias".
+  const nucleo = palabras.filter((p) => !CIERRES.has(colapsar(p)));
+  if (!nucleo.length) return false;
+
+  const frase = nucleo.join(" ");
+  if (FRASES_CIERRE.some((re) => re.test(frase))) return false;
+
+  return true;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -370,6 +421,29 @@ function crearVigilante({
       if (!primeraVez) continue;
 
       const ctx = await contextoDe(tel);
+
+      // Segunda pasada del filtro, ahora sobre el texto guardado.
+      // marcarEspera ya filtra al arrancar el reloj, pero los relojes que
+      // estaban corriendo cuando se agregó la lista de FRASES_CIERRE se
+      // arrancaron con la regla vieja y seguirían sonando: el del 23-nov
+      // ("Ya te aviso") ya había mandado el aviso de 20 min y tenía la urgente
+      // de las 20 h en camino. Esta pasada también cubre cualquier camino
+      // futuro que marque sin filtrar.
+      //
+      // Ojo con el `ctx.texto &&`: si el contexto se venció por TTL no hay
+      // texto que evaluar, y no saber qué dijo el cliente NO es razón para
+      // callarse. Sin esa guarda, `requiereRespuesta("")` es false y se
+      // comería justo las esperas más viejas.
+      if (ctx.texto && !requiereRespuesta(ctx.texto)) {
+        registrar("espera_descartada_cierre", {
+          from: String(tel),
+          horas: Math.floor(edad / H_MS),
+          texto_preview: String(ctx.texto).slice(0, 60),
+        });
+        await limpiarEspera(tel);
+        continue;
+      }
+
       alertas.push({
         telefono: String(tel),
         nombre: ctx.nombre || "",

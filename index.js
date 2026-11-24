@@ -16,6 +16,11 @@ const { getSimpleAIReply } = require("./services/aiFallbackService");
 const { crearBuscador } = require("./services/catalogoBuscador");
 const { detectarCanal, esWhatsApp, etiquetaCanal } = require("./services/canalDetector");
 const { preguntaPorRollos2x1, requiereHumano } = require("./services/intencionMensaje");
+// Leer lo que el cliente toco en un boton: ver services/leerBoton.js. Va ACA
+// arriba y no junto a normalizeWatiPayload: tests/test_bcg_local.js evalua por
+// texto el bloque de helpers de index.js, y un require() en medio de ese bloque
+// se resuelve contra tests/ y revienta.
+const { idDeBoton } = require("./services/leerBoton");
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -532,9 +537,6 @@ const MENU_PRINCIPAL_BUTTONS = [
   { id: "2", text: "🎾 Jugar pádel" },
   { id: "3", text: "👤 Hablar asesor" }
 ];
-
-// Leer lo que el cliente toco en un boton: ver services/leerBoton.js.
-const { idDeBoton } = require("./services/leerBoton");
 
 /**
  * Traduce el texto de una etiqueta de botón a su id ("🎾 Jugar pádel" → "2").

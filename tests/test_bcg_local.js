@@ -9,6 +9,9 @@ const helpersStart = src.indexOf("function getPlazaSchedule");
 const helpersEnd = src.indexOf("function getReservationDraft");
 eval(src.slice(helpersStart, helpersEnd));
 
+// Igual que en test_buttons_local.js: normalizeWatiPayload usa idDeBoton.
+var { idDeBoton } = require("../services/leerBoton");
+
 const normalizeStart = src.indexOf("function normalizeWatiPayload");
 const normalizeEnd = src.indexOf("// =====", normalizeStart);
 eval(src.slice(normalizeStart, normalizeEnd));
