@@ -1061,8 +1061,13 @@ const TODO_EL_STAFF = RUTA.todoElStaff;
 if (!HANDOFF_ALERT_NUMBERS.length) {
   console.log("🚨 HANDOFF_ALERT_NUMBERS quedó VACÍO: ninguna alerta al staff va a llegar.");
 }
-console.log("📣 alertas · fiestas:", (RUTA.grupos.fiestas.length || "(usa la lista vieja)"),
-            "· operación:", (RUTA.grupos.operacion.length || "(usa la lista vieja)"));
+// Se recorren los grupos en vez de nombrarlos: esta línea es el ÚNICO lugar
+// donde se ve si una variable de ruteo cargó. El 25-nov-2026 decía
+// "fiestas: 3 · operación: 2" con el grupo "piso" ya en el código, así que el
+// log no permitía comprobar que ALERTA_PISO_NUMEROS hubiera tomado.
+console.log("📣 alertas ·", Object.entries(RUTA.grupos)
+  .map(([g, l]) => `${g}: ${l.length || "(usa la lista vieja)"}`).join(" · "),
+  "· staff excluido del vigilante:", TODO_EL_STAFF.length);
 
 // Vigilante de espera — ver services/vigilanteEspera.js.
 // Nace del caso Luisa (6-nov-2026): pidió un paquete para 25 niños, un humano
