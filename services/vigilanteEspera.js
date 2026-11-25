@@ -203,6 +203,13 @@ function crearVigilante({
   redis,
   ahora = () => Date.now(),
   avisoMin = numEnv(process.env.ESPERA_AVISO_MIN, 20),
+  // Nivel rapido, 24-nov-2026: suena al telefono del local a los 5 min, y solo
+  // ahi (grupo "piso" de rutaAlertas). Vicente lo pidio asi porque el aviso de
+  // 20 min le llegaba a tres personas que no estan en el piso. Son 5 y no 3
+  // porque el cron corre cada 5 min: con 3 avisaria en algun punto entre los 3
+  // y los 8, sin que se pueda saber cuando, y multiplicaria las plantillas al
+  // mismo numero — Meta corta por numero tras unas pocas seguidas.
+  rapidoMin = numEnv(process.env.ESPERA_RAPIDO_MIN, 5),
   urgenteH = numEnv(process.env.ESPERA_URGENTE_H, 20),
   horaInicio = numEnv(process.env.ESPERA_HORA_INICIO, 8),
   horaFin = numEnv(process.env.ESPERA_HORA_FIN, 22),
@@ -363,12 +370,18 @@ function crearVigilante({
     const t = ahora();
     const habil = enHorario(t);
 
-    const techo = t - avisoMin * MIN_MS;   // más viejo que esto, ya toca avisar
-    const piso = t - VENTANA_MAX_MS;       // más viejo que esto, ya no sirve
+    // El techo lo pone el nivel MÁS RÁPIDO que exista, no el aviso: si se
+    // quedara en avisoMin, una espera de 6 minutos jamás entraría a la lista y
+    // el nivel rápido no sonaría nunca.
+    // (Antes esta cota de abajo se llamaba `piso`. Se renombró a `suelo` el
+    //  24-nov-2026: ahora "piso" es el grupo de alertas del local.)
+    const primerNivelMin = Math.min(avisoMin, rapidoMin);
+    const techo = t - primerNivelMin * MIN_MS;  // más viejo que esto, ya toca avisar
+    const suelo = t - VENTANA_MAX_MS;           // más viejo que esto, ya no sirve
 
     let pendientes = [];
     try {
-      pendientes = await redis.zrange(ZSET, piso, techo, { byScore: true });
+      pendientes = await redis.zrange(ZSET, suelo, techo, { byScore: true });
     } catch (e) {
       console.log("⚠️ vigilante revisarEsperas:", e?.message);
       return [];
@@ -391,7 +404,9 @@ function crearVigilante({
       if (!desde) continue;
 
       const edad = t - Number(desde);
-      const nivel = edad >= urgenteH * H_MS ? "urgente" : "aviso";
+      const nivel = edad >= urgenteH * H_MS ? "urgente"
+        : edad >= avisoMin * MIN_MS ? "aviso"
+        : "rapido";
 
       // El aviso de 20 min respeta el horario del local: no hay por qué
       // despertar a nadie. El URGENTE no, y es a propósito.
@@ -403,7 +418,9 @@ function crearVigilante({
       // del día siguiente ya tiene 29 h y se purga sin haberse evaluado. O sea
       // justo la alerta que vale ₡87.500 no sonaba nunca, y de madrugada es
       // cuando más se olvidan los chats.
-      if (nivel === "aviso" && !habil) continue;
+      // Solo el URGENTE ignora el horario. El rápido tampoco debe sonar de
+      // madrugada: el teléfono del local está en el local.
+      if (nivel !== "urgente" && !habil) continue;
 
       // Una alerta por nivel y por cliente. Si ya se avisó el "aviso", todavía
       // puede escalar a "urgente" más tarde porque la clave es distinta.
@@ -514,6 +531,17 @@ function textoAlerta({ nivel, nombre, telefono, texto, minutos, horas }) {
   const espera = minutos >= 60
     ? `${Math.floor(minutos / 60)} h ${minutos % 60} min`
     : `${minutos} min`;
+
+  // El rápido va al teléfono compartido del local, en medio del servicio. Se
+  // lee de un vistazo, sin cifras de plazos ni explicaciones de la ventana de
+  // WhatsApp: quien lo recibe tiene las manos ocupadas.
+  if (nivel === "rapido") {
+    return {
+      tipo: "Cliente esperando en WhatsApp",
+      detalle: `${quien}(${telefono}) lleva ${espera} sin respuesta.${cita} Contestarle en WATI.`,
+    };
+  }
+
   return {
     tipo: "Cliente esperando respuesta",
     detalle:

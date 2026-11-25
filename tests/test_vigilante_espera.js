@@ -135,11 +135,98 @@ async function run() {
     eq(a[0].minutos, 21);
   });
 
-  await t("a los 19 min todavía no", async () => {
+  // ─── Nivel rápido: 5 min al teléfono del piso (24-nov-2026) ───
+  //
+  // Lo pidió Vicente así: "un mensaje al teléfono del restaurante de que un
+  // cliente está esperando, que suene a los pocos minutos, a ellos más que a
+  // mí, a Mariela y a Liliana". El aviso de 20 min le llegaba a tres personas
+  // que no están en el piso y a nadie que pudiera contestarle al cliente en
+  // ese momento. Comprobado contra WATI: el 50663038030 ("Cotorreo Plaza") SÍ
+  // tiene WhatsApp y leyó 10 de 10 notificaciones entre el 21 y el 23-nov.
+
+  await t("a los 4 min todavía no alerta", async () => {
+    const { v, reloj } = nuevo();
+    await v.marcarEspera("50688551308", { texto: "¿cuánto cuesta?" });
+    reloj.t += 4 * MIN;
+    eq((await v.revisarEsperas()).length, 0);
+  });
+
+  await t("a los 6 min alerta nivel rapido", async () => {
+    const { v, reloj } = nuevo();
+    await v.marcarEspera("50688551308", { nombre: "Luisa", texto: "¿cuánto cuesta?" });
+    reloj.t += 6 * MIN;
+    const a = await v.revisarEsperas();
+    eq(a.length, 1);
+    eq(a[0].nivel, "rapido");
+    eq(a[0].minutos, 6);
+  });
+
+  await t("a los 19 min sigue siendo rapido, no aviso", async () => {
     const { v, reloj } = nuevo();
     await v.marcarEspera("50688551308", { texto: "¿cuánto cuesta?" });
     reloj.t += 19 * MIN;
+    const a = await v.revisarEsperas();
+    eq(a.length, 1);
+    eq(a[0].nivel, "rapido");
+  });
+
+  await t("el rapido también respeta el horario del local", async () => {
+    // Un cliente que escribe a las 2 a.m. no hace sonar el teléfono del piso.
+    // Solo el URGENTE ignora el horario, y eso no cambió.
+    const { v, reloj } = nuevo({ t0: MADRUGADA });
+    await v.marcarEspera("50688551308", { texto: "¿cuánto cuesta?" });
+    reloj.t += 6 * MIN;
     eq((await v.revisarEsperas()).length, 0);
+  });
+
+  await t("rapido y aviso son niveles distintos: el mismo cliente escala", async () => {
+    // Si el piso no lo agarró en 20 min, tiene que entrar la oficina. Las dos
+    // alertas usan claves de avisado distintas, así que ninguna tapa a la otra.
+    const { v, reloj } = nuevo();
+    await v.marcarEspera("50688551308", { texto: "¿cuánto cuesta?" });
+    reloj.t += 6 * MIN;
+    const r1 = await v.revisarEsperas();
+    eq(r1.length, 1);
+    eq(r1[0].nivel, "rapido");
+    reloj.t += 15 * MIN;                       // 21 min desde el mensaje
+    const r2 = await v.revisarEsperas();
+    eq(r2.length, 1);
+    eq(r2[0].nivel, "aviso");
+  });
+
+  await t("el rapido no se repite: una sola alerta por nivel", async () => {
+    const { v, reloj } = nuevo();
+    await v.marcarEspera("50688551308", { texto: "¿cuánto cuesta?" });
+    reloj.t += 6 * MIN;
+    eq((await v.revisarEsperas()).length, 1);
+    reloj.t += 2 * MIN;
+    eq((await v.revisarEsperas()).length, 0);
+  });
+
+  await t("si la casa contesta antes de los 5 min, nadie se entera", async () => {
+    const { v, reloj } = nuevo();
+    await v.marcarEspera("50688551308", { texto: "¿cuánto cuesta?" });
+    reloj.t += 2 * MIN;
+    await v.limpiarEspera("50688551308");
+    reloj.t += 30 * MIN;
+    eq((await v.revisarEsperas()).length, 0);
+  });
+
+  await t("el texto del rapido es corto y dice qué hacer", async () => {
+    const { tipo, detalle } = textoAlerta({
+      nivel: "rapido", nombre: "Luisa", telefono: "50688551308",
+      texto: "¿cuánto cuesta el paquete?", minutos: 6,
+    });
+    eq(/esperando/i.test(tipo), true);
+    eq(/6 min/.test(detalle), true);
+    eq(/8551308/.test(detalle), true);
+    eq(/Luisa/.test(detalle), true);
+    eq(/cuánto cuesta/.test(detalle), true);
+    // Va a un teléfono compartido en medio del servicio: tiene que leerse de
+    // un vistazo y no mandar a nadie a buscar en otra parte.
+    eq(detalle.length <= 300, true);
+    // Un parámetro de plantilla de WhatsApp no admite saltos de línea.
+    eq(/[\r\n]/.test(tipo + detalle), false);
   });
 
   // ─── El caso Luisa: dos mensajes seguidos, el reloj NO se reinicia ───

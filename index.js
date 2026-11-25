@@ -1037,11 +1037,22 @@ function getCheckoutText(from, cart) {
 //
 // Default de destinatarios: Liliana (admin operativa, WhatsApp activo, validado
 // en WATI por uso previo en n8n). Se agregan más por HANDOFF_ALERT_NUMBERS
-// (CSV) sin redeploy. El 50663038030 (operativo Cotorreo) falló con
-// "validWhatsAppNumber: false": sirve para llamadas y SINPE, no tiene WhatsApp.
+// (CSV) sin redeploy.
+//
+// 🔴 CORREGIDO el 24-nov-2026. Acá decía que el 50663038030 (operativo
+// Cotorreo) "sirve para llamadas y SINPE, no tiene WhatsApp", por un
+// "validWhatsAppNumber: false" de una prueba vieja. Es FALSO y ese comentario
+// casi mata la alerta al piso. Comprobado contra la API de WATI: el contacto
+// existe como "Cotorreo Plaza" y recibió 10 notificaciones entre el 21 y el
+// 23-nov-2026, las 10 en estado READ — o sea que llegan Y alguien las lee.
+// En el getContacts ese campo viene en null (sin probar), no en false.
 // A quien le toca cada alerta: ver services/rutaAlertas.js, donde esta el
 // porque y la prueba. Dos grupos, "fiestas" y "operacion", y la lista vieja
 // como red de seguridad.
+// A qué grupo le toca cada nivel del vigilante. Lo que no esté acá cae en
+// "operacion", que es el comportamiento que había antes del 24-nov-2026.
+const GRUPO_POR_NIVEL = { rapido: "piso" };
+
 const RUTA = require("./services/rutaAlertas").construir(process.env);
 const HANDOFF_ALERT_NUMBERS = RUTA.base;
 const destinatarios = RUTA.destinatarios;
@@ -1452,7 +1463,9 @@ async function enviarAlertasEspera() {
     const a = alertas[i];
     if (i > 0) await dormir(WATI_PAUSA_MS);
     const { tipo, detalle } = textoAlertaEspera(a);
-    const ok = await mandarAlertaStaff(tipo, detalle);
+    // El nivel rápido (5 min) va SOLO al teléfono del local; los de 20 min y
+    // 20 h siguen cayendo en operación. Ver services/rutaAlertas.js.
+    const ok = await mandarAlertaStaff(tipo, detalle, GRUPO_POR_NIVEL[a.nivel] || "operacion");
     if (ok) {
       enviadas++;
       logEvent("espera_alerta_enviada", {

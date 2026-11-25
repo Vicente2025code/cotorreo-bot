@@ -25,6 +25,12 @@ function construir(env = process.env) {
   const grupos = {
     fiestas: lista(env.ALERTA_FIESTAS_NUMEROS),
     operacion: lista(env.ALERTA_OPERACION_NUMEROS),
+    // 24-nov-2026. El telefono compartido del local. Nace de esto, dicho por
+    // Vicente: el aviso de "un cliente esta esperando" le llegaba a tres
+    // personas que no estan en el piso y a nadie que pudiera contestarle al
+    // cliente en ese momento. El nivel rapido del vigilante (5 min) viene aca
+    // y SOLO aca; los niveles de 20 min y 20 h siguen yendo a la oficina.
+    piso: lista(env.ALERTA_PISO_NUMEROS),
   };
 
   // Un grupo que no existe NO puede caer en "avisarle a todos": si manana
@@ -40,7 +46,11 @@ function construir(env = process.env) {
   // El vigilante de espera no debe perseguir al propio staff: si Liliana le
   // escribe al bot, su mensaje no es "un cliente esperando". Se excluye a
   // TODOS los que reciben alertas, de cualquier grupo.
-  const todoElStaff = [...new Set([...base, ...grupos.fiestas, ...grupos.operacion])];
+  // Se arma recorriendo los grupos y NO enumerandolos a mano: el 24-nov-2026
+  // se agrego el grupo "piso" y una lista escrita a mano lo habria dejado
+  // afuera en silencio, con lo que el vigilante habria tratado sus propias
+  // notificaciones al local como "un cliente esperando".
+  const todoElStaff = [...new Set([...base, ...Object.values(grupos).flat()])];
 
   return { base, grupos, destinatarios, todoElStaff };
 }
